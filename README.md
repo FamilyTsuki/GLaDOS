@@ -130,6 +130,13 @@ particularly AMD’s separately installed vendor wheel. Rerun the installer to
 update or switch the backend; it preserves the environment and replaces the old
 ONNX distribution before installing the selected one.
 
+On Windows, `scripts\glados.bat` runs steps 2 and 3 together: it starts
+`llama-server` and the web console in minimised windows, then opens the browser.
+Running it again stops both, so a desktop shortcut to it works as an on/off
+switch; `start` and `stop` arguments are also accepted. It reads the same
+`LLAMA_SERVER` and `GLADOS_MODEL_DIR` variables as `run_llamacpp.sh`. Use a
+CUDA build of `llama-server`: audio input to E4B is much slower on Vulkan.
+
 ## Choose a conversation profile
 
 | Profile | Voice input | Conversation backend | Starting configuration |
