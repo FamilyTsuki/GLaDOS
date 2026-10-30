@@ -18,6 +18,8 @@ from .routing_tree import CATEGORIES, RoutingTree
 class RoutingConfig(BaseModel):
     enabled: bool | None = None
     timeout_s: float = Field(default=10, ge=1, le=60)
+    # When set, spoken input in any other language is treated as speech addressed to others.
+    addressed_language: str | None = None
 
     def enabled_for(self, url: str, headers: dict) -> bool:
         """Use one-token routing automatically on a compatible llama.cpp server."""
@@ -218,8 +220,11 @@ class DecisionRouter:
         options = [o for o in decision.options if o.enabled]
         labels = [chr(65 + i) for i in range(len(options))]
         ids = self.token_ids(labels)
+        language = self.config.addressed_language if audio or spoken else None
         listing = "\n".join(
-            f"{label}: {o.description}" + (f" [tool={o.tool}, arguments={o.arguments}]" if o.action == "tool" else "")
+            f"{label}: {o.description}"
+            + (f" [tool={o.tool}, arguments={o.arguments}]" if o.action == "tool" else "")
+            + (f"; includes any speech that is not in {language}" if language and o.action == "ignore" else "")
             for label, o in zip(labels, options, strict=True)
         )
         source = (
@@ -242,6 +247,11 @@ class DecisionRouter:
             system += (
                 "\nClassify the CURRENT audio, not an earlier request. Audio does not require a transcript. "
                 "History markers saying transcripts are disabled do not make the current speech unclear."
+            )
+        if language and any(o.action == "ignore" for o in options):
+            system += (
+                f"\nPeople address GLaDOS only in {language}. Speech in any other language is a conversation "
+                "between other people, never addressed to GLaDOS: choose the option that ignores it."
             )
         metadata = ""
         if context:

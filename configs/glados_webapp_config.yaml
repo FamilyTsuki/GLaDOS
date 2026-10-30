@@ -12,6 +12,7 @@ Glados:
     reserved_interactive: 2  # Conversation and routing; background jobs share two slots.
   routing:
     enabled: true  # llama.cpp one-token option scoring.
+    addressed_language: "English"  # Ignore speech in other languages as not addressed to GLaDOS; null to disable.
   health:
     enabled: true
     interval_s: 10

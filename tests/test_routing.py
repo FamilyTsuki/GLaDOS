@@ -161,6 +161,24 @@ def test_uncertainty_and_typed_ignore_fall_back(store: DecisionListStore, monkey
     assert router.score(store.get().model_copy(update={"strategy": "flat"}), "Someone said hello", spoken=True)["action"] == "ignore"
 
 
+def test_addressed_language_only_guides_spoken_input(store: DecisionListStore, monkeypatch: pytest.MonkeyPatch) -> None:
+    router, post = make_router(store, monkeypatch, [0.99, 0.0025, 0.0025, 0.0025, 0.0025])
+    router.config = RoutingConfig(addressed_language="English")
+    flat = store.get().model_copy(update={"strategy": "flat"})
+
+    def system_prompt() -> str:
+        return post.call_args.kwargs["json"]["messages"][0]["content"]
+
+    assert router.score(flat, "Tu viens manger ?", spoken=True)["action"] == "ignore"
+    assert "only in English" in system_prompt()
+    assert "includes any speech that is not in English" in system_prompt()
+    router.score(flat, "Tu viens manger ?")
+    assert "only in English" not in system_prompt()  # Typed input is always addressed to GLaDOS.
+    router.config = RoutingConfig()
+    router.score(flat, "Tu viens manger ?", spoken=True)
+    assert "only in English" not in system_prompt()
+
+
 @pytest.mark.parametrize("action", ["ignore", "tool"])
 def test_routing_gates_generation_and_tool_dispatch(
     store: DecisionListStore, action: str, monkeypatch: pytest.MonkeyPatch
