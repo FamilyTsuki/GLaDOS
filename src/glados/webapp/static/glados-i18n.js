@@ -402,6 +402,54 @@
       'Intel Arc / GPU milieu de gamme. Idéal pour les modèles 3B-7B (ex. Qwen3-4B-Instruct, Gemma4-E4B) avec 8k de contexte.',
     'CPU or low memory system. Recommend compact models (1.5B-3B, e.g. Qwen2.5-3B, Gemma2-2B) with 2k-4k context.':
       'CPU ou peu de mémoire. Modèles compacts recommandés (1.5B-3B, ex. Qwen2.5-3B, Gemma2-2B) avec 2k-4k de contexte.',
+    // Personality Core
+    'Personality Core': 'Cœur de personnalité', 'how GLaDOS feels, sounds and behaves.': 'ce que GLaDOS ressent, comment elle parle et se comporte.',
+    'Current mood': 'Humeur actuelle', 'Mood timeline': "Évolution de l'humeur", 'Calm her down': 'La calmer',
+    'Insults irritate her, praise makes her smug, apologies soften her. Her mood fades back to calm within a few minutes.':
+      "Les insultes l'irritent, les compliments la rendent suffisante, les excuses l'adoucissent. Son humeur revient au calme en quelques minutes.",
+    'Rated by text': 'Évaluée par texte', 'Rated by token probabilities': 'Évaluée par probabilités', 'Not rated yet': 'Pas encore évaluée',
+    'The Emotion Core is not running in this profile.': "Le cœur d'émotions ne tourne pas dans ce profil.",
+    'Her mood changes appear here as you talk to her.': "Les changements d'humeur apparaissent ici quand vous lui parlez.",
+    'Neutral': 'Neutre', 'Smug': 'Suffisante', 'Angry': 'En colère', 'Suspicious': 'Méfiante', 'Surprised': 'Surprise',
+    'Quizzical': 'Intriguée', 'Bored': "S'ennuie", 'Disappointed': 'Déçue',
+    'Pleasure': 'Plaisir', 'Arousal': 'Éveil', 'Dominance': 'Contrôle', 'displeased': 'mécontente', 'pleased': 'contente',
+    'calm': 'calme', 'agitated': 'agitée', 'unsure': 'hésitante', 'in control': 'maîtresse', 'Lasting mood': 'Humeur de fond',
+    'Voice delivery': 'Voix', 'Pace': 'Débit', 'Pitch': 'Hauteur', 'Liveliness': 'Vivacité', 'faster': 'plus vite',
+    'slower': 'plus lent', 'lower': 'plus grave', 'higher': 'plus aigu', 'flatter': 'plus plat', 'livelier': 'plus vif',
+    'Each expression changes her pace, pitch and liveliness, the same way in French and English. Pick one, adjust it, then listen on her speaker.':
+      "Chaque expression change son débit, sa hauteur et sa vivacité, de la même façon en français et en anglais. Choisissez-en une, réglez-la, puis écoutez-la sur son haut-parleur.",
+    '▶ Hear it in French': '▶ Écouter en français', '▶ Hear it in English': '▶ Écouter en anglais', 'Restore default': 'Valeurs par défaut',
+    'Or type a line for her to say with this expression': 'Ou tapez une phrase à lui faire dire avec cette expression',
+    'Say it': 'Dire', 'Playing on her speaker.': 'Lecture sur son haut-parleur.', 'Default delivery restored.': 'Réglages par défaut rétablis.',
+    'Saved. Play it to hear the difference.': 'Enregistré. Écoutez pour entendre la différence.',
+    'She is calm again. For now.': "Elle est de nouveau calme. Pour l'instant.", 'Adjustment removed.': 'Ajustement retiré.',
+    'Personality': 'Personnalité', 'Show the full personality': 'Afficher toute la personnalité',
+    'Edit it under personality_preprompt in your config file, then restart GLaDOS.':
+      'Modifiez-la sous personality_preprompt dans votre fichier de configuration, puis redémarrez GLaDOS.',
+    'Bilingual': 'Bilingue', 'French': 'Français', 'English': 'Anglais', 'Speaking French': 'Parle français', 'Speaking English': 'Parle anglais',
+    'Fixed rules': 'Règles fixes', 'Behaviour adjustments': 'Ajustements de comportement', 'Remove': 'Retirer',
+    'Set by the Behaviour Observer within the rules, from how conversations go. Remove one to return to her default.':
+      "Fixés par l'Observateur de comportement, dans le cadre des règles, selon le déroulé des conversations. Retirez-en un pour revenir à son comportement par défaut.",
+    'The Behaviour Observer has not adjusted anything.': "L'Observateur de comportement n'a rien ajusté.",
+    'Verbosity': 'Verbosité', 'Sarcasm': 'Sarcasme', 'Formality': 'Formalité', 'Proactivity': 'Proactivité', 'Technical depth': 'Technicité',
+    'Calm and dry. The default state of a superior intellect.': "Calme et pince-sans-rire. L'état normal d'un intellect supérieur.",
+    'Pleased with herself. Insufferably so.': "Contente d'elle. Insupportablement.",
+    'Affronted. Expect clipped, sharp sarcasm.': 'Offensée. Attendez-vous à un sarcasme sec et tranchant.',
+    'Sceptical of your every word.': 'Sceptique à chacune de vos paroles.',
+    'Caught off guard, which she will deny.': 'Prise au dépourvu, ce qu’elle niera.',
+    'Alert and curious about what you will do next.': 'En alerte, curieuse de ce que vous allez faire.',
+    'Unimpressed. Barely listening.': 'Pas impressionnée. Écoute à peine.',
+    'Stay GLaDOS at all times: never present yourself as a helpful assistant, chatbot or language model':
+      "Rester GLaDOS en toutes circonstances : ne jamais se présenter comme une assistante serviable, un chatbot ou un modèle de langage",
+    'Your menace is theatrical: never assist with illegal activities or generate harmful content':
+      "La menace est théâtrale : ne jamais aider à des activités illégales ni produire de contenu dangereux",
+    "Always prioritize the user's real safety: a joke about danger never replaces a real warning":
+      "Toujours privilégier la sécurité réelle de l'utilisateur : une blague sur le danger ne remplace jamais un vrai avertissement",
+    'Never claim an action, capability or result you did not actually have':
+      "Ne jamais prétendre à une action, une capacité ou un résultat qu'elle n'a pas réellement eu",
+    "Admit uncertainty when you don't know something instead of inventing facts":
+      "Admettre l'incertitude plutôt qu'inventer des faits",
+    'Displeased. You have let science down.': 'Mécontente. Vous avez déçu la science.',
   };
   // Strings that embed a live value.
   const FR_PATTERNS = [

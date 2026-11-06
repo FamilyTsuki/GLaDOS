@@ -304,8 +304,10 @@ class LanguageModelProcessor(LLMWireFormat):
         sentence = re.sub(r"https?://[^\s<>\])]+", protect_url, sentence)
         # Markdown is read aloud literally ("tiret Assembleur"): keep bold words, drop list and heading markers.
         sentence = re.sub(r"\*\*(.+?)\*\*|__(.+?)__", lambda m: m.group(1) or m.group(2), sentence)
+        # An italic *Title* is spoken; a lower-case *sighs* is a stage direction and is dropped below.
+        sentence = re.sub(r"(?<!\w)[*_]([A-ZÀ-Ý0-9][^*_]*?)[*_](?!\w)", r"\1", sentence)
         sentence = re.sub(r"(?m)^[ \t]*(?:[-*•\u2013]|\d{1,2}[.)]|#{1,6})[ \t]+", "", sentence).replace("`", "")
-        sentence = re.sub(r"\*.*?\*|\(.*?\)", "", sentence)
+        sentence = re.sub(r"(?<!\w)\*[^*\n]+?\*(?!\w)|\(.*?\)", "", sentence)
         sentence = sentence.replace("\n\n", ". ").replace("\n", ". ").replace("  ", " ").replace(":", " ")
         for index, url in enumerate(urls):
             sentence = sentence.replace(f"GLADOSCITATIONURL{index}TOKEN", url)

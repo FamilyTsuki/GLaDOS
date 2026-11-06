@@ -669,3 +669,17 @@ def test_finished_search_goes_straight_to_central() -> None:
     request = loop._central_queue.get_nowait()
     assert SEARCH_INSTRUCTION in request["content"] and "example.org/top" in request["content"]
     assert loop._llm_queue.empty(), "the local reviewer no longer delays an awaited result"
+
+
+@pytest.mark.parametrize(
+    ("sentence", "spoken"),
+    [
+        ("Je vous recommande *Arrival*, une œuvre poétique.", "Je vous recommande Arrival, une œuvre poétique."),
+        ("*sighs* Very well.", "Very well."),
+        ("Three *4 is not a thing, but 3*4 = 12.", "Three *4 is not a thing, but 3*4 = 12."),
+    ],
+)
+def test_titles_and_arithmetic_survive_stage_direction_removal(sentence: str, spoken: str) -> None:
+    processor = make_processor()
+    processor._process_sentence_for_tts([sentence])
+    assert processor.tts_input_queue.get_nowait().text.strip() == spoken

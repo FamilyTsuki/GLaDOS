@@ -174,3 +174,50 @@ body {background:var(--bg-glow),var(--bg);font-family:var(--font-ui);line-height
   box-shadow: 0 0 10px rgba(255, 92, 108, 0.45);
 }
 .diff-meta {color:#58a6ff}
+
+/* Personality Core */
+#view-personality .card {margin-bottom:16px}
+.personality-grid {align-items:start}
+.mood-head {display:flex;align-items:center;gap:16px;margin-bottom:14px}
+.mood-orb {width:72px;height:72px;flex-shrink:0;border-radius:50%;display:grid;place-items:center;font-size:30px;color:var(--mood);
+  background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--mood) 45%,transparent),transparent 68%),var(--panel-2);
+  border:2px solid var(--mood);box-shadow:0 0 22px color-mix(in srgb,var(--mood) 45%,transparent);animation:mood-pulse 3.2s ease-in-out infinite}
+@keyframes mood-pulse {50% {box-shadow:0 0 34px color-mix(in srgb,var(--mood) 65%,transparent)}}
+@media (prefers-reduced-motion:reduce) {.mood-orb {animation:none}}
+.mood-label {font-size:20px;font-weight:700;letter-spacing:.04em;margin-bottom:4px}
+.pad-row {display:grid;grid-template-columns:86px 74px minmax(80px,1fr) 74px 38px;align-items:center;gap:8px;margin:7px 0;font-size:12px}
+.pad-name {font-weight:600}
+.pad-end {color:var(--dim);font-size:11px}
+.pad-row .pad-end:first-of-type, .knob .pad-end:first-of-type {text-align:right}
+.pad-track {position:relative;height:10px;border-radius:6px;background:var(--panel-2);border:1px solid var(--line)}
+.pad-track::after {content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--line-2,var(--line))}
+.pad-fill {position:absolute;top:1px;bottom:1px;border-radius:5px;transition:left .5s,width .5s}
+.pad-mood {position:absolute;top:-4px;width:3px;height:16px;margin-left:-1px;border-radius:2px;background:var(--text);opacity:.55}
+.pad-value {font-family:var(--mono);text-align:right}
+.mood-chart {width:100%;height:90px;display:block}
+.mood-axis {stroke:var(--line);stroke-dasharray:3 4}
+.mood-legend {display:flex;gap:14px;font-size:11px;color:var(--muted);margin:6px 0 10px}
+.mood-legend i {display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.mood-change {align-items:center}
+.expression-picker {display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 14px}
+.expression-pick {display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:20px;cursor:pointer;font-size:12px;
+  background:var(--panel-2);color:var(--text);border:1px solid var(--line)}
+.expression-pick span {color:var(--mood);font-size:15px}
+.expression-pick.active {border-color:var(--mood);box-shadow:0 0 0 1px var(--mood) inset;color:var(--mood)}
+.knob {display:grid;grid-template-columns:86px 54px minmax(100px,1fr) 54px 40px;align-items:center;gap:8px;margin:8px 0;font-size:12px}
+.knob-name {font-weight:600}
+.knob input[type=range] {width:100%;accent-color:var(--teal)}
+.knob output {font-family:var(--mono);text-align:right}
+.voice-sample {font-style:italic}
+.voice-own {display:flex;gap:10px;margin-top:6px}
+.voice-own input {flex:1;min-width:0;background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:6px 10px;font-size:13px}
+.persona-text {white-space:pre-wrap;font-family:var(--mono);font-size:12px;line-height:1.5;max-height:340px;overflow:auto;
+  background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:8px}
+.rules-list {margin:0 0 16px 18px;font-size:13px;line-height:1.6}
+@media (max-width:700px) {
+  .pad-row {grid-template-columns:70px minmax(60px,1fr) 34px}
+  .pad-row .pad-end, .knob .pad-end {display:none}
+  .knob {grid-template-columns:70px minmax(80px,1fr) 40px}
+}
+.persona-opening {font-size:14px;line-height:1.55;margin-bottom:8px}
+.mood-change > .console-note {white-space:nowrap}

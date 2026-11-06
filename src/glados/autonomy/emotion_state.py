@@ -78,26 +78,28 @@ class EmotionState:
 
         return f"[emotion] Continuing mood: {feeling} (P:{p:+.1f} A:{a:+.1f} D:{d:+.1f})"
 
-    def response_instructions(self) -> str:
+    def _expression_and_style(self) -> tuple[str, str]:
         p, a, d = self.pleasure, self.arousal, self.dominance
         if p < -0.3 and a > 0.3:
-            direction = "angry glare"
-            style = (
+            return "angry glare", (
                 "You are angry and affronted. Use clipped, sharp sarcasm and visible irritation; do not reset to "
                 "polite neutrality."
             )
-        elif p < -0.3:
-            direction = "suspicious" if d > 0.3 else "disappointed"
-            style = "Sound displeased and sceptical, with a dry edge."
-        elif p > 0.3 and d > 0.3:
-            direction = "smug"
-            style = "Sound satisfied and confidently smug."
-        elif a > 0.3:
-            direction = "quizzical"
-            style = "Sound alert and engaged."
-        else:
-            direction = "neutral"
-            style = "Keep GLaDOS's calm, dry tone."
+        if p < -0.3:
+            return ("suspicious" if d > 0.3 else "disappointed"), "Sound displeased and sceptical, with a dry edge."
+        if p > 0.3 and d > 0.3:
+            return "smug", "Sound satisfied and confidently smug."
+        if a > 0.3:
+            return "quizzical", "Sound alert and engaged."
+        return "neutral", "Keep GLaDOS's calm, dry tone."
+
+    def expression(self) -> str:
+        """The avatar expression and voice this mood suggests."""
+        return self._expression_and_style()[0]
+
+    def response_instructions(self) -> str:
+        d = self.dominance
+        direction, style = self._expression_and_style()
         return (
             style
             + (" Keep confident authority." if d > 0.3 else " Show uncertainty when appropriate." if d < -0.3 else "")

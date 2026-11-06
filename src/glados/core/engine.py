@@ -40,7 +40,7 @@ from ..observability.latency import LatencyTracker
 from ..tools.agent import AgentState, agent_definitions
 from ..tools.safe_command import SafeCommandRunner
 from ..tools.self_improve import self_improve_definition
-from ..TTS import SpeechSynthesizerProtocol, get_speech_synthesizer
+from ..TTS import SpeechSynthesizerProtocol, get_speech_synthesizer, prosody
 from ..utils import spoken_text_converter as stc
 from ..utils.resources import resource_path
 from ..vision import VisionConfig, VisionState
@@ -146,10 +146,13 @@ class Glados(GladosCommands):
         self._quiet_generation = 0
         self._autonomy_generation = 0
         self.operator_state = OperatorState(path=resource_path("data/operator_settings.yaml"))
+        # Per-expression voice delivery the owner tuned on the Personality Core page.
+        prosody.load(resource_path("data/prosody_settings.yaml"))
         self.inference_scheduler = InferenceScheduler(inference_config)
         self.end_of_speech_ms = end_of_speech_ms
         self.language = language
         self.language_state = language_state
+        self.personality_preprompt = personality_preprompt
         self.wake_word_follow_up_s = wake_word_follow_up_s
         self.wake_word_session_s = wake_word_session_s
         native_audio = (
@@ -257,6 +260,8 @@ class Glados(GladosCommands):
         self.context_builder.register("preferences", self.preferences_store.as_prompt, priority=10)
         self.context_builder.register("knowledge", lambda: self._format_knowledge(), priority=5)
         self.context_builder.register("constitution", self.constitutional_state.get_modifiers_prompt, priority=3)
+        # The fixed rules come before the modifiers the Observer may adjust within them.
+        self.context_builder.register("rules", self.constitutional_state.constitution.get_rules_prompt, priority=21)
 
         # Long-term recall is published by the Memory Core through its slot.
         self.context_builder.register("emotion", self._emotion_prompt, priority=15, volatile=True)

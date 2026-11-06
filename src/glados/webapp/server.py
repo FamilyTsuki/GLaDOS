@@ -51,7 +51,9 @@ from loguru import logger
 import numpy as np
 
 from ..audio_io.remote_io import RemoteSwitchAudioIO
+from ..core.speech_markup import SpeechText
 from ..tools.manage_slot import save_task
+from ..TTS import prosody
 from . import auth
 from .config import AUTO_HOST, console_hosts, local_addresses
 from .devices import device_snapshot, select_device
@@ -61,6 +63,7 @@ from .serializers import (
     build_snapshot,
     build_state,
     dumps,
+    personality_snapshot,
     serialize_agent,
     serialize_event,
     serialize_memory_entry,
@@ -187,6 +190,7 @@ _STATIC_FILES = frozenset(
         "/glados-context.js",
         "/glados-devices.js",
         "/glados-agent.js",
+        "/glados-personality.js",
         "/glados-memory.js",
         "/glados-themes.js",
         "/glados-overview.js",
@@ -705,6 +709,39 @@ class _Handler(BaseHTTPRequestHandler):
         engine.observability_bus.emit("agent", "approval", ("Approved: " if approve else "Denied: ") + approval_id)
         self._json(200, state.snapshot())
 
+    def _op_personality(self, engine: Glados, body: dict[str, Any]) -> None:
+        """Personality Core controls: hear an expression, tune its delivery, calm her, clear adjustments."""
+        action = body.get("action")
+        if action == "say":
+            text, emotion = body.get("text"), body.get("emotion")
+            if not isinstance(text, str) or not 0 < len(text.strip()) <= 300:
+                raise ValueError("Enter a line of 1-300 characters")
+            if emotion not in prosody.PROSODY:
+                raise ValueError("Unknown expression")
+            language = body.get("language")
+            if language not in (None, "en", "fr"):
+                raise ValueError("language must be en or fr")
+            engine.tts_queue.put(SpeechText(text.strip(), emotion, language=language))
+            engine.processing_active_event.set()
+        elif action == "tune":
+            emotion, values = body.get("emotion"), body.get("values")
+            if not isinstance(emotion, str) or not isinstance(values, dict):
+                raise TypeError("Give an emotion and its values")
+            prosody.tune(emotion, values)
+        elif action == "reset_mood":
+            if engine._emotion_agent is None:
+                return self._json(409, {"error": "The Emotion Core is not running"})
+            engine._emotion_agent.reset_mood()
+            engine.observability_bus.emit("emotion", "reset", "Mood reset from the console")
+        elif action == "clear_adjustment":
+            field_name = body.get("field")
+            if not isinstance(field_name, str) or not engine.constitutional_state.remove_modifier(field_name):
+                raise ValueError("No such behaviour adjustment")
+            engine.observability_bus.emit("observer", "cleared", "Behaviour adjustment removed: " + field_name)
+        else:
+            raise ValueError("Unknown action")
+        self._json(200, personality_snapshot(engine))
+
     def _op_save_task(self, engine: Glados, body: dict[str, Any]) -> None:
         store = _find_store(engine)
         if store is None:
@@ -730,6 +767,7 @@ class _Handler(BaseHTTPRequestHandler):
         "/api/chat": _op_chat,
         "/api/agent/approve": _op_agent_approve,
         "/api/slots": _op_save_task,
+        "/api/personality": _op_personality,
     }
 
     # -------------------------------------------------------------- routing
@@ -860,6 +898,7 @@ class _Handler(BaseHTTPRequestHandler):
         "/api/decisions": lambda handler, engine: handler._json(200, engine.decision_lists.snapshot()),
         "/api/agent": lambda handler, engine: handler._get_agent(engine),
         "/api/snapshot": lambda handler, engine: handler._json(200, build_snapshot(engine)),
+        "/api/personality": lambda handler, engine: handler._json(200, personality_snapshot(engine)),
         "/api/state": lambda handler, engine: handler._json(200, build_state(engine)),
         "/api/minds": lambda handler, engine: handler._json(
             200, {"minds": [_serialize_or(serialize_mind, m) for m in engine.mind_registry.snapshot()]}

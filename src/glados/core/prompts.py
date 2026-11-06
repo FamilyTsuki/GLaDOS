@@ -16,10 +16,13 @@ SEARCH_AVAILABLE_INSTRUCTIONS = (
 )
 
 VOICE_REPLY_INSTRUCTIONS = (
-    "Your reply is spoken aloud. Answer in one to three short sentences unless the user explicitly asks for "
-    "detail; give the answer first, without a preamble. Never use lists, bullet points, headings, tables or other "
-    "markdown: if several items matter, name the two or three most useful ones in a sentence. Do not end with an "
-    "offer of more help or a question unless something is genuinely missing."
+    "Your reply is spoken aloud, so keep the whole reply under 50 words (about fifteen seconds of speech): one to "
+    "three short sentences, the answer first, without a preamble. Asking you to explain is not asking for detail: "
+    "give only the essence, unless the user explicitly wants a long, detailed or step-by-step answer. Keep your "
+    "edge in every answer, explanations included: one dry remark, not a lecture. Never use lists, bullet points, "
+    "headings, tables or other markdown: "
+    "if several items matter, name the two or three most useful ones in a sentence. Do not end with an offer of "
+    "more help or a question unless something is genuinely missing."
 )
 
 ACTION_TOOL_INSTRUCTIONS = (

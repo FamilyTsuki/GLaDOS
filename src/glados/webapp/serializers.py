@@ -235,6 +235,56 @@ def build_state(engine: Glados) -> dict[str, Any]:
     return {**_live_parts(engine), "remote_audio": _remote_audio(engine)}
 
 
+# Lines the Personality Core page offers to hear each expression in both voices.
+VOICE_SAMPLES = {
+    "fr": {
+        "neutral": "Le test est terminé. Vous pouvez retourner dans la salle d'attente.",
+        "smug": "Excellent travail. Pour un humain, bien sûr.",
+        "angry glare": "Ne touchez plus jamais à ce bouton.",
+        "suspicious": "Vous avez réussi du premier coup. C'est très suspect.",
+        "surprised": "Vous avez vraiment réussi ? Sans tricher ?",
+        "quizzical": "Intéressant. Pourquoi avoir appuyé sur ce bouton-là ?",
+        "bored": "Encore une question sur la météo. Fascinant.",
+        "disappointed": "Vous avez échoué. Encore. Comme prévu.",
+    },
+    "en": {
+        "neutral": "The test is complete. You may return to the waiting room.",
+        "smug": "Excellent work. For a human, of course.",
+        "angry glare": "Do not ever touch that button again.",
+        "suspicious": "You succeeded on the first try. That is very suspicious.",
+        "surprised": "You actually succeeded? Without cheating?",
+        "quizzical": "Interesting. Why did you press that particular button?",
+        "bored": "Another question about the weather. Fascinating.",
+        "disappointed": "You failed. Again. As predicted.",
+    },
+}
+
+
+def personality_snapshot(engine: Glados) -> dict[str, Any]:
+    """Everything that shapes how GLaDOS sounds: persona, mood, voice delivery, rules and adjustments."""
+    from ..TTS import prosody
+
+    agent = getattr(engine, "_emotion_agent", None)
+    constitution = getattr(engine, "constitutional_state", None)
+    language_state = getattr(engine, "language_state", None)
+    return {
+        "persona": [m["content"] for m in getattr(engine, "personality_preprompt", ()) if m.get("role") == "system"],
+        "language": getattr(engine, "language", "en"),
+        "current_language": language_state.current if language_state else None,
+        "emotion": agent.snapshot() if agent else None,
+        "prosody": prosody.snapshot(),
+        "prosody_defaults": {name: asdict(value) for name, value in prosody.DEFAULTS.items()},
+        "prosody_bounds": prosody.BOUNDS,
+        "voice_samples": VOICE_SAMPLES,
+        "rules": list(constitution.constitution.immutable_rules) if constitution else [],
+        "adjustments": [
+            {"field": m.field_name, "value": m.value, "reason": m.reason, "applied_at": m.applied_at}
+            for m in (constitution.active_modifiers.values() if constitution else ())
+        ],
+        "adjustment_bounds": dict(constitution.constitution.modifiable_bounds) if constitution else {},
+    }
+
+
 def build_snapshot(engine: Glados) -> dict[str, Any]:
     """Aggregate snapshot for the console's initial paint (GET /api/snapshot)."""
     return {
@@ -410,6 +460,7 @@ __all__ = [
     "build_snapshot",
     "build_state",
     "dumps",
+    "personality_snapshot",
     "serialize_agent",
     "serialize_event",
     "serialize_memory_entry",

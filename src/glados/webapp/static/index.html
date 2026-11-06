@@ -242,6 +242,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
     <div class="nav-item" data-view="context"><span class="ico">&#8801;</span><span>Neural Buffer</span></div>
     <div class="nav-item" data-view="tools"><span class="ico">⚒</span><span>Facility Tools</span><span class="badge" id="toolsBadge">0</span></div>
     <div class="nav-item" data-view="tasks"><span class="ico">▤</span><span>Test Assignments</span><span class="badge" id="tasksBadge">0</span></div>
+    <div class="nav-item" data-view="personality"><span class="ico">&#9685;</span><span>Personality Core</span></div>
     <div class="nav-item" data-view="agent"><span class="ico">⌘</span><span>Agent</span><span class="badge" id="agentBadge" hidden>0</span></div>
     <div class="nav-item" data-view="settings"><span class="ico">⚙</span><span>Facility Settings</span></div>
     <div class="nav-item" data-view="wire"><span class="ico">&#8776;</span><span>Observation Log</span><span class="badge" id="wireBadge">0</span></div>
@@ -379,6 +380,27 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
       <p class="console-note">Create an assignment, ask GLaDOS to work on it, then inspect its result. Core state and reports live in Cores.</p><div class="slots" id="slots"></div>
     </section>
 
+    <section class="view" id="view-personality">
+      <div class="view-head"><h1>Personality Core</h1><span class="sub">how GLaDOS feels, sounds and behaves.</span></div>
+      <p class="console-note" id="personality-feedback" role="status"></p>
+      <div class="grid cols-2 personality-grid">
+        <div class="card"><h3>Current mood <span class="now" id="mood-scoring"></span></h3><div id="mood-now"></div>
+          <div class="console-actions"><button type="button" class="btn-secondary" id="mood-reset">Calm her down</button></div>
+          <p class="console-note">Insults irritate her, praise makes her smug, apologies soften her. Her mood fades back to calm within a few minutes.</p></div>
+        <div class="card"><h3>Mood timeline</h3><div id="mood-timeline"></div><div id="mood-history"></div></div>
+      </div>
+      <div class="card"><h3>Voice delivery</h3>
+        <p class="console-note">Each expression changes her pace, pitch and liveliness, the same way in French and English. Pick one, adjust it, then listen on her speaker.</p>
+        <div id="voice-expressions" class="expression-picker"></div><div id="voice-tuning"></div>
+        <div class="voice-own"><input type="text" id="voice-text" maxlength="300" placeholder="Or type a line for her to say with this expression"><button type="button" class="btn-secondary" id="voice-say">Say it</button></div>
+      </div>
+      <div class="grid cols-2 personality-grid">
+        <div class="card"><h3>Personality</h3><div id="persona"></div></div>
+        <div class="card"><h3>Fixed rules</h3><ul id="rules" class="rules-list"></ul>
+          <h3>Behaviour adjustments</h3><p class="console-note">Set by the Behaviour Observer within the rules, from how conversations go. Remove one to return to her default.</p><div id="adjustments"></div></div>
+      </div>
+    </section>
+
     <section class="view" id="view-agent">
       <div class="view-head"><h1>Agent</h1><span class="sub">what GLaDOS does on this computer.</span><div class="right"><button type="button" class="btn-secondary" id="agent-notify">Notifications: off</button></div></div>
       <p class="console-note">GLaDOS runs commands, edits files and controls the desktop by herself. Blacklisted actions wait here until you approve them, or until you say your confirmation code. Every action is also written to data/agent_audit.jsonl.</p>
@@ -501,6 +523,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 <script src="glados-memory.js"></script>
 <script src="glados-devices.js"></script>
 <script src="glados-agent.js"></script>
+<script src="glados-personality.js"></script>
 <script>
 "use strict";
 /* GLaDOS Core Console — dual mode.
@@ -542,6 +565,7 @@ const contextInspector = window.GladosContext.mount(document, () => S.live && S.
 const memoryBrowser = window.GladosMemory.mount(document, () => S.live && S.connection === 'live');
 const deviceSelector = window.GladosDevices.mount(document, () => S.live && S.connection === 'live');
 const agentPanel = window.GladosAgent.mount(document, () => S.live && S.connection === 'live');
+const personalityPanel = window.GladosPersonality.mount(document);
 let toolsRenderKey="",mindsRenderKey="",slotsRenderKey="",homeTasksRenderKey="";
 function normalizeLanes(lanes = {}){
   return {
@@ -611,18 +635,24 @@ function renderFilters(){
 /* ============ navigation ============ */
 function go(name){
   if(name==="minds" || name==="slots") name="cores";
-  document.title=(name==="cores"?"Cores":({home:"Enrichment Center",context:"Neural Buffer",memory:"Test Chamber",tools:"Facility Tools",tasks:"Test Assignments",agent:"Agent",settings:"Facility Settings",wire:"Observation Log",vitals:"Diagnostics"})[name]||"GLaDOS")+" · GLaDOS | Aperture Science";
+  document.title=(name==="cores"?"Cores":({home:"Enrichment Center",context:"Neural Buffer",memory:"Test Chamber",tools:"Facility Tools",tasks:"Test Assignments",personality:"Personality Core",agent:"Agent",settings:"Facility Settings",wire:"Observation Log",vitals:"Diagnostics"})[name]||"GLaDOS")+" · GLaDOS | Aperture Science";
   avatar.setVisible(name==="home");
   contextInspector.setVisible(name==='context');
   memoryBrowser.setVisible(name==='memory');
   deviceSelector.setVisible(name==='settings');
   agentPanel.setVisible(name==='agent');
+  personalityPanel.setVisible(name==='personality');
   $$(".nav-item").forEach(n => n.classList.toggle("active", n.dataset.view===name));
   $$(".view").forEach(v => v.classList.toggle("active", v.id==="view-"+name));
+  // The address names the page, so it can be bookmarked or reopened after a reload.
+  const place=globalThis.location;
+  if(place && globalThis.history?.replaceState && place.hash.slice(1)!==name) globalThis.history.replaceState(null, "", name==="home" ? place.pathname + place.search : "#" + name);
   if(name==="wire"){ renderFilters(); renderFullWire(); unread=0; updateBadges(); }
 }
 $$(".nav-item").forEach(n => {n.setAttribute("role","button");n.setAttribute("tabindex","0");n.addEventListener("click",()=>go(n.dataset.view));n.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();go(n.dataset.view);}});});
 $$("[data-go]").forEach(b => b.addEventListener("click", () => go(b.dataset.go)));
+const linkedView=(globalThis.location?.hash || "").slice(1);
+if(linkedView && document.getElementById("view-" + linkedView)) go(linkedView);
 
 /* ============ lanes ============ */
 function phaseLabel(dt){ const p=clamp(dt/3200,0,1); return p<0.35?"thinking":(p<0.72?"reasoning":"writing"); }

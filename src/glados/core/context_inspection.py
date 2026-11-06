@@ -21,6 +21,7 @@ TITLES = {
     "memory": "Retrieved memory",
     "knowledge": "Knowledge",
     "constitution": "Personality modifiers",
+    "rules": "Constitution · fixed rules",
     "mcp": "Connected service data",
     "vision": "Vision Core · current observation",
     "health": "Health Core · system readings and rolling commentary",
@@ -65,6 +66,7 @@ PURPOSES = {
     "memory": "Memory retrieved for this request.",
     "knowledge": "Saved knowledge.",
     "constitution": "Personality modifiers.",
+    "rules": "Fixed rules the Behaviour Observer cannot change: character, safety and honesty.",
 }
 
 
