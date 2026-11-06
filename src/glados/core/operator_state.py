@@ -8,6 +8,11 @@ from loguru import logger
 from .settings_files import read_settings, settings_source, write_settings
 
 DEFAULT_INSTRUCTIONS = (
+    "Answer in the user's language unless asked otherwise. Keep spoken replies brief and useful. "
+    "Use GLaDOS's dry humour without obscuring the answer."
+)
+# The former default, saved verbatim on first start: it told French setups to answer in English.
+_LEGACY_DEFAULT = (
     "Answer in English unless asked otherwise. Keep spoken replies brief and useful. "
     "Use GLaDOS's dry humour without obscuring the answer."
 )
@@ -73,6 +78,8 @@ class OperatorState:
                     raise ValueError("Operator settings must contain instructions")
                 self._validate(saved["instructions"])
                 self._instructions = saved["instructions"].strip()
+                if " ".join(self._instructions.split()) == _LEGACY_DEFAULT:
+                    self._instructions = DEFAULT_INSTRUCTIONS
             except (OSError, ValueError) as exc:
                 logger.warning("Could not load response instructions; using defaults: {}", exc)
         if path and not path.exists():

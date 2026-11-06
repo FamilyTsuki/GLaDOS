@@ -38,6 +38,8 @@ class HealthConfig(BaseModel):
     log_paths: list[str] = Field(default_factory=list, max_length=16)
     summary_interval_s: float = Field(default=60, ge=10, le=3600)
     summary_max_tokens: int = Field(default=128, ge=32, le=256)
+    summary_timeout_s: float = Field(default=30, ge=5, le=300)
+    """Its ~1000-token prompt shares the local GPU with other cores; 10 s timed out on an iGPU."""
     summary_enabled: bool = True
 
 
@@ -401,7 +403,7 @@ class HealthAgent(Subagent):
                     "temperature": 0,
                     "chat_template_kwargs": {"enable_thinking": False},
                 },
-                timeout=10,
+                timeout=self.settings.summary_timeout_s,
                 cancelled=lambda: llm.cancelled() or self.paused or self._interactive_busy(),
             )
             comment = llm_call(

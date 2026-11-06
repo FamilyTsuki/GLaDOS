@@ -206,6 +206,11 @@ class GladosConfig(BaseModel):
             self.llm_request_options = req_opts
             if self.autonomy and self.autonomy.autonomy_parallel_calls == 2:
                 self.autonomy.autonomy_parallel_calls = adaptive["autonomy_parallel_calls"]
+            # Background cores share the local GPU with replies; values set in a config file are kept.
+            if self.autonomy and "cooldown_s" not in self.autonomy.model_fields_set:
+                self.autonomy.cooldown_s = adaptive["autonomy_cooldown_s"]
+            if "summary_interval_s" not in self.health.model_fields_set:
+                self.health.summary_interval_s = adaptive["health_summary_interval_s"]
         logger.info(
             "Adaptive hardware: {} -> Context: {} tok, Timeout: {}s, Autonomy workers: {}",
             adaptive["hardware_summary"],

@@ -993,11 +993,15 @@ class LanguageModelProcessor(LLMWireFormat):
             and not turn.audio_content
         ):
             content = str(turn.llm_message.get("content", ""))
-            turn.tools = self._filter_tools_for_message(turn.tools, content)
-            search = [tool for tool in turn.tools if tool.get("function", {}).get("name") == INTERNET_SEARCH_TOOL]
+            offered = self._filter_tools_for_message(turn.tools, content)
+            search = [tool for tool in offered if tool.get("function", {}).get("name") == INTERNET_SEARCH_TOOL]
             if search and wants_search(content, self._last_reply_text()):
                 # Offered alongside other tools, small models promise "je lance une recherche" and never call it.
-                turn.tools, turn.search_requested = search, True
+                # An API base can be told which tool to call; a local model only follows a choice it cannot avoid.
+                turn.search_requested = True
+                if not self._remote_backend:
+                    offered = search
+            turn.tools = offered
         turn.tool_names = {
             tool.get("function", {}).get("name", "") for tool in turn.tools if tool.get("function", {}).get("name")
         }
@@ -1081,11 +1085,9 @@ class LanguageModelProcessor(LLMWireFormat):
             for key in ollama_param_keys:
                 if key in turn.data:
                     opts[key] = turn.data.pop(key)
+            # num_ctx stays as configured even when replies are slow: shrinking it never shortened the prompt,
+            # so 4-6k-token requests were rejected at 2048/4096, and each change made Ollama reload the model.
             if opts:
-                if self._hardware_controller:
-                    mult = self._hardware_controller.adaptive_context_multiplier()
-                    if mult < 1.0 and "num_ctx" in opts:
-                        opts["num_ctx"] = max(2048, int(opts["num_ctx"] * mult))
                 turn.data["options"] = opts
         if turn.autonomy_mode:
             limit = 512 if self._autonomy_thinking else 256
@@ -1115,7 +1117,11 @@ class LanguageModelProcessor(LLMWireFormat):
         )
         if turn.allow_tools and turn.tools and not turn.autonomy_mode:
             turn.data["tools"] = turn.tools
-            if turn.search_planning:
+            if turn.search_planning and turn.search_requested and self._remote_backend:
+                # Name the tool instead of shrinking the list, so the API's cached prompt prefix survives.
+                name = re.sub(r"[^a-zA-Z0-9_-]", "_", INTERNET_SEARCH_TOOL)
+                turn.data["tool_choice"] = {"type": "function", "function": {"name": name}}
+            elif turn.search_planning:
                 # An explicit search route must perform a search, including repeated questions.
                 turn.data["tool_choice"] = "required"
 
@@ -1178,7 +1184,10 @@ class LanguageModelProcessor(LLMWireFormat):
                                 and not self._remote_backend
                                 and (nexus := self._nexus())
                             ):
-                                nexus.observe_first_token(ttft)
+                                # The user also waited while background cores held the local GPU.
+                                enqueued_at = turn.llm_input.get("_enqueued_at")
+                                waited = time.time() - enqueued_at if isinstance(enqueued_at, (int, float)) else 0.0
+                                nexus.observe_first_token(max(ttft, waited))
                             if self._hardware_controller:
                                 self._hardware_controller.record_latency(ttft)
                         if isinstance(chunk, list):

@@ -60,7 +60,7 @@ Glados:
   autonomy:
     enabled: true
     tick_interval_s: 10
-    cooldown_s: 20
+    # cooldown_s follows the hardware tier: 20 s on a strong GPU, 60-120 s where replies share an iGPU or CPU
     autonomy_parallel_calls: 2   # parallel autonomy LLM workers -> the console's "Autonomy" lane
     autonomy_queue_max: null
     tokens:

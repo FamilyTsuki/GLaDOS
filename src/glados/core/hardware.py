@@ -430,11 +430,13 @@ def get_adaptive_llm_settings(
         num_predict = 1024
         timeout = 35.0
         workers = 2
+        background_pacing = (20.0, 60.0)
         recommendation = "Ultra high-end workstation. Fits 14B-32B models effortlessly with large context."
     elif profile.tier == "high":
         num_predict = 1024
         timeout = 45.0
         workers = 2
+        background_pacing = (20.0, 60.0)
         recommendation = (
             "Dedicated GPU / Apple Silicon High Tier. Excellent for 7B-14B models (e.g. Qwen2.5-14B, Llama-3.1-8B)."
         )
@@ -442,6 +444,8 @@ def get_adaptive_llm_settings(
         num_predict = 512
         timeout = 60.0
         workers = 1  # 1 worker prevents Ollama single-stream (-np 1) slot contention
+        # A background request beside a reply made it ~33% slower on an Arc iGPU: run them less often.
+        background_pacing = (60.0, 300.0)
         recommendation = (
             "Intel Arc / Mid-range GPU. Best suited for 3B-7B models "
             "(e.g. Qwen3-4B-Instruct, Gemma4-E4B) with 8k context."
@@ -450,6 +454,7 @@ def get_adaptive_llm_settings(
         num_predict = 256
         timeout = 90.0
         workers = 1
+        background_pacing = (120.0, 600.0)
         recommendation = (
             "CPU or low memory system. Recommend compact models "
             "(1.5B-3B, e.g. Qwen2.5-3B, Gemma2-2B) with 2k-4k context."
@@ -470,6 +475,8 @@ def get_adaptive_llm_settings(
         "num_thread": num_thread,
         "llm_timeout": timeout,
         "autonomy_parallel_calls": workers,
+        "autonomy_cooldown_s": background_pacing[0],
+        "health_summary_interval_s": background_pacing[1],
         "options": {
             "num_ctx": num_ctx,
             "num_predict": num_predict,

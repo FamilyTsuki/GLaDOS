@@ -17,6 +17,8 @@ Glados:
   nexus:
     base:
       reasoning_effort: "low"        # "minimal" made gpt-5-nano announce searches without calling the tool
+  health:
+    summary_interval_s: 300          # Its LLM commentary every 60 s competed with replies on the iGPU
   autonomy:
     cooldown_s: 90                   # 20 s re-prompted the local model after every reply, starving Health and heating the iGPU
   llm_request_options:

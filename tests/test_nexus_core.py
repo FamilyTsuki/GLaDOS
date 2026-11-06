@@ -118,10 +118,10 @@ def test_controls_persist_and_prompt_central_only_when_active(agent: NexusAgent,
 def test_slow_local_replies_move_central_to_the_api_and_failures_bring_it_back(agent: NexusAgent) -> None:
     switched = []
     agent._set_backend = switched.append
-    for seconds in (20, 22):
+    for seconds in (11, 12):
         agent.observe_first_token(seconds)
     assert not switched
-    agent.observe_first_token(21)
+    agent.observe_first_token(13)
     backend = switched[-1]
     assert backend["model"] == "gpt-5-nano" and backend["remote"]
     assert backend["request_options"]["reasoning_effort"] == "minimal"
@@ -131,6 +131,31 @@ def test_slow_local_replies_move_central_to_the_api_and_failures_bring_it_back(a
     for seconds in (30, 30, 30):  # A recently failed API is not retried at once.
         agent.observe_first_token(seconds)
     assert switched[-1] is None
+
+
+def test_one_very_slow_local_reply_switches_and_the_next_start_begins_on_the_api(
+    agent: NexusAgent, tmp_path: Path
+) -> None:
+    switched = []
+    agent._set_backend = switched.append
+    agent.observe_first_token(41)
+    assert switched[-1]["remote"] and agent.status()["base"] == "api"
+
+    restarted = NexusAgent(NexusConfig(), LOCAL, slot_store=TaskSlotStore(), settings_path=tmp_path / "nexus.yaml")
+    restarted._set_backend = switched.append
+    restarted._update_base()
+    assert restarted.status()["base"] == "api" and "recent session" in restarted.status()["base_reason"]
+
+
+def test_probe_counts_the_tokens_the_server_actually_measured(
+    agent: NexusAgent, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    response = Mock(status_code=200)
+    response.json.return_value = {"prompt_eval_count": 390, "message": {"content": "OK"}}
+    monkeypatch.setattr("glados.autonomy.agents.nexus_agent.requests.post", Mock(return_value=response))
+    ticks = iter([0.0, 0.1, 10.0, 11.3])
+    monkeypatch.setattr("glados.autonomy.agents.nexus_agent.time.perf_counter", lambda: next(ticks))
+    assert agent.probe_local() == pytest.approx(3000 * 1.3 / 390)
 
 
 def test_probe_switches_when_local_server_is_unreachable_or_slow(

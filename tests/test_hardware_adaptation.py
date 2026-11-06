@@ -117,3 +117,45 @@ def test_hardware_adaptation_controller_adjusts_context() -> None:
     snap = ctrl.snapshot()
     assert snap["recent_avg_ttft_s"] > 30.0
     assert snap["context_multiplier"] == 0.25
+
+
+def test_slow_replies_do_not_shrink_the_context_below_the_prompt() -> None:
+    from unittest.mock import Mock
+
+    from glados.core.processor_turn import ProcessorTurn
+    from tests.test_speech_markup import make_processor
+
+    processor = make_processor()
+    processor._ollama_mode = True
+    processor._request_options = {"options": {"num_ctx": 8192}}
+    processor._hardware_controller = Mock(adaptive_context_multiplier=Mock(return_value=0.25))
+    turn = ProcessorTurn(llm_input={"role": "user", "content": "Bonjour"}, llm_message={"role": "user"})
+    processor._request_options_for_turn(turn)
+    assert turn.data["options"]["num_ctx"] == 8192, "a 2048 context rejected 4-6k-token prompts with HTTP 400"
+
+
+def test_background_cores_are_paced_where_they_share_the_gpu_with_replies(monkeypatch, tmp_path) -> None:
+    from glados.core import config as config_module
+    from glados.core.config import GladosConfig
+
+    pacing = {
+        tier: (s["autonomy_cooldown_s"], s["health_summary_interval_s"])
+        for tier, s in (
+            (p.tier, get_adaptive_llm_settings(p, is_local=True))
+            for p in (
+                HardwareProfile(tier="high", gpu_type="nvidia", vram_total_gb=16),
+                HardwareProfile(tier="medium", gpu_type="intel_arc"),
+                HardwareProfile(tier="low", gpu_type="cpu"),
+            )
+        )
+    }
+    assert pacing == {"high": (20.0, 60.0), "medium": (60.0, 300.0), "low": (120.0, 600.0)}
+
+    monkeypatch.setattr(config_module, "detect_hardware", lambda: HardwareProfile(tier="medium", gpu_type="intel_arc"))
+    monkeypatch.setattr(config_module, "probe_model_spec", lambda *_args, **_kwargs: None)
+    adapted = GladosConfig.from_yaml(["configs/glados_extended_config.yaml"])
+    assert (adapted.autonomy.cooldown_s, adapted.health.summary_interval_s) == (60.0, 300.0)
+    overlay = tmp_path / "mine.yaml"
+    overlay.write_text("Glados:\n  autonomy:\n    cooldown_s: 15\n  health:\n    summary_interval_s: 90\n")
+    chosen = GladosConfig.from_yaml(["configs/glados_extended_config.yaml", str(overlay)])
+    assert (chosen.autonomy.cooldown_s, chosen.health.summary_interval_s) == (15.0, 90.0), "explicit values win"

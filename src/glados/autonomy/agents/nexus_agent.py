@@ -66,6 +66,11 @@ DEFAULT_MODELS = (
     ),
 )
 
+# A single local reply this many times over the threshold moves Central to the API at once.
+SLOW_REPLY_FACTOR = 2
+# How long a slow local model is remembered across restarts.
+SLOW_MEMORY_S = 24 * 3600
+
 # Reasoning tokens count against the completion limit; leave room for the visible answer.
 _REASONING_ALLOWANCE = {None: 0, "minimal": 0, "low": 2000, "medium": 6000, "high": 16000}
 
@@ -159,6 +164,8 @@ class NexusAgent(Subagent):
         self._local_estimate_s: float | None = None
         self._last_probe = 0.0
         self._api_failed_at = 0.0
+        self._local_slow_at: float | None = None
+        """Wall time the local model last proved too slow; the next start begins on the API."""
         self._load()
 
     # Persistent operator state
@@ -175,6 +182,9 @@ class NexusAgent(Subagent):
             return
         self._consult_active = values.get("consult_active") is True
         self._preferences = [str(p)[:300] for p in values.get("preferences", []) if isinstance(p, str)][:10]
+        slow_at = values.get("local_slow_at")
+        if isinstance(slow_at, (int, float)) and not isinstance(slow_at, bool):
+            self._local_slow_at = float(slow_at)
         spend = values.get("spend")
         if isinstance(spend, dict):
             self._spend = {str(k): float(v) for k, v in spend.items() if isinstance(v, (int, float))}
@@ -204,6 +214,8 @@ class NexusAgent(Subagent):
             **self._overrides,
             "spend": {today: round(self._spend.get(today, 0.0), 6)},
         }
+        if self._local_slow_at is not None:
+            values["local_slow_at"] = round(self._local_slow_at)
         try:
             write_settings(self._settings_path, values)
         except OSError as exc:
@@ -580,19 +592,26 @@ class NexusAgent(Subagent):
                 self._local_latencies.clear()
         self._publish()
 
+    def _remember_slow_local(self, slow: bool) -> None:
+        with self._lock:
+            self._local_slow_at = time.time() if slow else None
+        self._save()
+
     def observe_first_token(self, seconds: float) -> None:
-        """Real Central latency on the local model; repeated slow replies move Central to the API."""
+        """Real Central latency on the local model, queue wait included; slow replies move Central to the API."""
         if self._base != "local" or not self._base_switching or self.settings.base.mode != "auto":
             return
         self._local_latencies.append(seconds)
         if self._api_failed_at and time.monotonic() - self._api_failed_at < self.settings.base.reprobe_interval_s:
             return
+        threshold = self.settings.base.latency_threshold_s
         estimate = self._local_estimate()
-        if (
-            len(self._local_latencies) >= self.settings.base.window
-            and estimate is not None
-            and estimate > self.settings.base.latency_threshold_s
-        ):
+        if seconds >= SLOW_REPLY_FACTOR * threshold:
+            # One reply this slow is enough: waiting for a full window left the user repeating themselves.
+            self._remember_slow_local(True)
+            self._switch("api", f"A local reply took {seconds:.0f} s")
+        elif len(self._local_latencies) >= self.settings.base.window and estimate is not None and estimate > threshold:
+            self._remember_slow_local(True)
             self._switch("api", f"Local first replies take about {estimate:.0f} s")
 
     def observe_failure(self, remote: bool, reason: str) -> None:
@@ -611,7 +630,7 @@ class NexusAgent(Subagent):
         ollama = url.rstrip("/").endswith("/api/chat")
         timeout = self.settings.base.probe_timeout_s
 
-        def ask(text: str) -> float:
+        def ask(text: str) -> tuple[float, int | None]:
             body: dict[str, Any] = {
                 **self._local_backend.get("request_options", {}),
                 "model": self._local_backend.get("model"),
@@ -630,16 +649,23 @@ class NexusAgent(Subagent):
                 headers=self._local_backend.get("headers") or {"Content-Type": "application/json"},
             )
             response.raise_for_status()
-            return time.perf_counter() - started
+            elapsed = time.perf_counter() - started
+            result = response.json()
+            usage = result.get("usage") if isinstance(result, dict) else None
+            tokens = result.get("prompt_eval_count") if isinstance(result, dict) else None
+            if not isinstance(tokens, int) and isinstance(usage, dict):
+                tokens = usage.get("prompt_tokens")
+            return elapsed, tokens if isinstance(tokens, int) and tokens > 0 else None
 
         sample_tokens = 512
         filler = "The test chamber is clean and every instrument reads nominal. " * (sample_tokens * 4 // 64)
         try:
             ask("Reply OK.")  # Loads the model; its cold start is not a per-reply cost.
-            elapsed = ask(uuid.uuid4().hex + "\n" + filler + "\nReply OK.")  # Fresh prefix defeats prompt caching.
+            elapsed, measured = ask(uuid.uuid4().hex + "\n" + filler + "\nReply OK.")  # Fresh prefix defeats caching.
         except (requests.RequestException, ValueError):
             return None
-        return self.settings.base.typical_prompt_tokens * elapsed / sample_tokens
+        # The filler tokenizes to ~390 tokens, not 512: assuming 512 underestimated replies by a quarter.
+        return self.settings.base.typical_prompt_tokens * elapsed / (measured or sample_tokens)
 
     def _update_base(self) -> None:
         mode = self.settings.base.mode
@@ -656,6 +682,16 @@ class NexusAgent(Subagent):
         if mode == "api":
             if self._base != "api" and time.monotonic() - self._api_failed_at >= self.settings.base.reprobe_interval_s:
                 self._switch("api", "Base mode is api")
+            return
+        if (
+            self._base == "local"
+            and not self._last_probe
+            and self._local_slow_at is not None
+            and time.time() - self._local_slow_at < SLOW_MEMORY_S
+        ):
+            # Start where the last session ended instead of re-learning the slowness from the user's first replies.
+            self._last_probe = time.monotonic()  # The local model is rechecked after the usual interval.
+            self._switch("api", "The local model was too slow in a recent session")
             return
         due = time.monotonic() - self._last_probe >= self.settings.base.reprobe_interval_s or not self._last_probe
         if not due or not self._idle():
@@ -674,6 +710,7 @@ class NexusAgent(Subagent):
             if estimate is None:
                 self._switch("api", "Local model server is unreachable")
             elif estimate > threshold:
+                self._remember_slow_local(True)
                 self._switch("api", f"Local first replies estimated at {estimate:.0f} s")
             else:
                 self._publish()
@@ -682,6 +719,7 @@ class NexusAgent(Subagent):
             and estimate < threshold * self.settings.base.recover_ratio
             and time.monotonic() - self._api_failed_at >= self.settings.base.reprobe_interval_s
         ):
+            self._remember_slow_local(False)
             self._switch("local", f"Local first replies now estimated at {estimate:.0f} s")
         else:
             self._publish()

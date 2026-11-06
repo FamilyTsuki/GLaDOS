@@ -596,8 +596,10 @@ def test_search_is_wanted_for_lookups_and_for_a_yes_to_her_offer(content: str, l
     assert wants_search(content, last_reply) is expected
 
 
-def test_a_yes_to_her_search_offer_requires_the_search_call(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("remote", [False, True])
+def test_a_yes_to_her_search_offer_requires_the_search_call(remote: bool, monkeypatch: pytest.MonkeyPatch) -> None:
     processor = make_processor()
+    processor._remote_backend = remote
     processor.extra_tools = [
         {"type": "function", "function": {"name": SEARCH_TOOL, "parameters": {"type": "object"}}},
         {"type": "function", "function": {"name": "get_time", "parameters": {"type": "object"}}},
@@ -618,8 +620,13 @@ def test_a_yes_to_her_search_offer_requires_the_search_call(monkeypatch: pytest.
 
     monkeypatch.setattr("glados.core.llm_processor.requests.post", post)
     processor.run()
-    assert bodies[0]["tool_choice"] == "required"
-    assert [tool["function"]["name"] for tool in bodies[0]["tools"]] == [SEARCH_TOOL.replace(".", "_")]
+    offered = [tool["function"]["name"] for tool in bodies[0]["tools"]]
+    search = SEARCH_TOOL.replace(".", "_")
+    if remote:  # The API is told which tool to call; the full list keeps its cached prompt prefix.
+        assert bodies[0]["tool_choice"] == {"type": "function", "function": {"name": search}}
+        assert search in offered and len(offered) > 1
+    else:  # A local model only follows a choice it cannot avoid.
+        assert bodies[0]["tool_choice"] == "required" and offered == [search]
 
 
 def test_dotted_tool_names_in_history_are_renamed_like_the_offered_tools() -> None:
