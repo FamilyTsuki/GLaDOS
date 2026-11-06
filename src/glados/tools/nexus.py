@@ -15,9 +15,10 @@ control_definition = {
     "function": {
         "name": "nexus_control",
         "description": (
-            "Turn Nexus Core consultation on or off when the user asks (e.g. 'activate the Nexus Core'), "
-            "report its status, base model and spending, or save/clear a standing preference about which "
-            "external models to use."
+            "Your API usage and costs: status returns what you spent per day, the daily average and the projected "
+            "yearly cost, plus the base model and its price; call it for any question about what your API or you "
+            "cost. Also turns Nexus Core consultation on or off when the user asks (e.g. 'activate the Nexus "
+            "Core'), and saves or clears a standing preference about which external models to use."
         ),
         "parameters": {
             "type": "object",

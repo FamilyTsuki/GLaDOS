@@ -66,6 +66,8 @@ DEFAULT_MODELS = (
     ),
 )
 
+# Daily spend totals kept for the yearly cost projection.
+SPEND_HISTORY_DAYS = 31
 # A single local reply this many times over the threshold moves Central to the API at once.
 SLOW_REPLY_FACTOR = 2
 # How long a slow local model is remembered across restarts.
@@ -212,7 +214,7 @@ class NexusAgent(Subagent):
             "consult_active": self._consult_active,
             "preferences": self._preferences,
             **self._overrides,
-            "spend": {today: round(self._spend.get(today, 0.0), 6)},
+            "spend": {day: round(value, 6) for day, value in sorted(self._spend.items())} or {today: 0.0},
         }
         if self._local_slow_at is not None:
             values["local_slow_at"] = round(self._local_slow_at)
@@ -285,6 +287,7 @@ class NexusAgent(Subagent):
                 else round(estimate, 1),
                 "spent_today_usd": round(self.spent_today(), 4),
                 "daily_budget_usd": self.settings.daily_budget_usd,
+                **self._cost_outlook(),
                 "running_consultations": len(self._running),
                 "preferences": list(self._preferences),
             }
@@ -314,6 +317,22 @@ class NexusAgent(Subagent):
 
     # Budget and records
 
+    def _cost_outlook(self) -> dict[str, Any]:
+        """Average daily spend and its yearly projection, computed here rather than by a small model."""
+        today = date.today().isoformat()
+        past = [value for day, value in self._spend.items() if day != today]
+        # Today is still running: use finished days when there are any.
+        daily = statistics.mean(past) if past else self._spend.get(today, 0.0)
+        base = self._base_model()
+        return {
+            "spend_by_day_usd": {day: round(value, 4) for day, value in sorted(self._spend.items())},
+            "average_daily_spend_usd": round(daily, 4),
+            "average_basis": f"{len(past)} finished day(s)" if past else "today so far",
+            "projected_yearly_spend_usd": round(daily * 365, 2),
+            "yearly_spend_at_full_budget_usd": round(self.settings.daily_budget_usd * 365, 2),
+            "base_model_price_usd_per_million_tokens": {"input": base.price_in, "output": base.price_out},
+        }
+
     def spent_today(self) -> float:
         return self._spend.get(date.today().isoformat(), 0.0)
 
@@ -332,7 +351,10 @@ class NexusAgent(Subagent):
         cost = (prompt * model.price_in + completion * model.price_out) / 1_000_000
         with self._lock:
             today = date.today().isoformat()
-            self._spend = {today: self._spend.get(today, 0.0) + cost}
+            self._spend[today] = self._spend.get(today, 0.0) + cost
+            # A month of daily totals lets her project her yearly API cost from real use.
+            for day in sorted(self._spend)[:-SPEND_HISTORY_DAYS]:
+                del self._spend[day]
             self._save()
         return cost
 

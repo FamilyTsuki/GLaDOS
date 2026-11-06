@@ -538,6 +538,7 @@ class Glados(GladosCommands):
                 "conversation_store": self._conversation_store,
                 "interaction_state": self.interaction_state,
                 "agent_state": self.agent_state,
+                "mcp_manager": self.mcp_manager,  # Lets the background worker search the web.
             },
             tool_timeout=self.tool_timeout,
             pause_time=self.PAUSE_TIME,

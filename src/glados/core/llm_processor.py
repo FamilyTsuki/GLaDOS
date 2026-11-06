@@ -39,6 +39,7 @@ from .operator_state import CONSOLE_PROMPT
 from .processor_turn import ProcessorTurn, ResponseState
 from .prompts import (
     ACTION_TOOL_INSTRUCTIONS,
+    DELEGATE_INSTRUCTIONS,
     ROUTING_FALLBACK_INSTRUCTIONS,
     SEARCH_AVAILABLE_INSTRUCTIONS,
     SEARCH_COMPLETED_INSTRUCTIONS,
@@ -544,6 +545,8 @@ class LanguageModelProcessor(LLMWireFormat):
             self._add_request_context(messages, SEARCH_AVAILABLE_INSTRUCTIONS)
         if "self_improve" in tool_names:
             self._add_request_context(messages, SELF_IMPROVE_AVAILABLE_INSTRUCTIONS)
+        if "delegate_task" in tool_names:
+            self._add_request_context(messages, DELEGATE_INSTRUCTIONS)
 
     def _build_tools(self, autonomy_mode: bool) -> list[dict[str, Any]]:
         """Return the tool list for the LLM request."""

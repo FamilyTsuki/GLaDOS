@@ -52,7 +52,28 @@ AGENT_TOOL_GROUPS = {
 }
 # Accent-free, lower-case stems in French and English; "any" offers every agent tool.
 AGENT_TOOL_KEYWORDS = {
-    "any": ("agent", "tache de fond", "en arriere-plan", "background", "delegue", "delegate", "automatis"),
+    "any": (
+        "agent",
+        "tache de fond",
+        "en arriere-plan",
+        "background",
+        "delegue",
+        "delegate",
+        "automatis",
+        # Juggling several requests: the long one goes to the background worker.
+        "en attendant",
+        "pendant ce temps",
+        "pendant que",
+        "meanwhile",
+        "in the meantime",
+        "while you",
+        "github",
+        "enquete",
+        "investigat",
+        "analyse",
+        "analyze",
+        "compare",
+    ),
     "shell": (
         "command",
         "lance",

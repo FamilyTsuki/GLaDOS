@@ -17,13 +17,33 @@ from .base import _AgentTool, _Collect, _notify_desktop, redact
 from .definitions import agent_definitions
 
 WORKER_TOOL_TIMEOUT_S = 300.0  # The worker is already in the background, so its commands may run longer.
+WEB_SEARCH = "mcp.internet_search.web_search_exa"
+WEB_SEARCH_DEFINITION = {
+    "type": "function",
+    "function": {
+        "name": "web_search",
+        "description": "Search the public internet; returns the top pages with their URL and an excerpt.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "What to look for"},
+                "numResults": {"type": "integer", "minimum": 1, "maximum": 8},
+            },
+            "required": ["query"],
+        },
+    },
+}
 WORKER_PROMPT = (
     "You are the background worker of GLaDOS, an assistant running on its owner's Arch Linux PC with Hyprland. "
     "Complete the task with the tools: work step by step, check each result, fix errors and verify the outcome "
     "before stopping. Prefer one run_shell with standard tools (find, grep, wc, du, sort, git) over many file "
     "reads: a folder includes its subfolders unless told otherwise. Never ask the owner questions; if something is "
     "blocked (for example a blacklisted action "
-    "that needs the owner's code), skip it and say so. When finished, reply without tool calls: a short report of "
+    "that needs the owner's code), skip it and say so. For facts on the internet use web_search; for GitHub use "
+    "the logged-in gh CLI (gh api, gh search) through run_shell, which returns real data instead of web pages; "
+    "gh api reads with GET when query parameters are in the path (gh api 'repos/OWNER/REPO/commits?per_page=5'), "
+    "while -f switches it to POST and fails. "
+    "When finished, reply without tool calls: a short report of "
     "what you did, the result, and anything left to do. Save durable facts you discover (project locations, "
     "working commands, the owner's habits) with agent_notes so later tasks start faster."
 )
@@ -92,6 +112,8 @@ class DelegateTask(_AgentTool):
     ) -> tuple[str, str, list[str]]:
         """Run the worker until it answers without tool calls: (status, final text, actions taken)."""
         tools = [d for d in agent_definitions if d["function"]["name"] != "delegate_task"]
+        if self.tool_config.get("mcp_manager") is not None:
+            tools.append(WEB_SEARCH_DEFINITION)
         notes = AgentNotes(_Collect(), self.tool_config).read()[-2000:]
         system = prompt + (f"\n\nYour notes from earlier tasks:\n{notes}" if notes else "")
         messages: list[dict[str, Any]] = [
@@ -119,6 +141,21 @@ class DelegateTask(_AgentTool):
                     {"tool_name": name} if self.config.worker_api == "ollama" else {"tool_call_id": call.get("id", "")}
                 )
                 messages.append({"role": "tool", **link, "content": result})
+        # Out of steps: what was found is still worth a report, so ask for one without tools.
+        messages.append(
+            {
+                "role": "user",
+                "content": "You have used all your steps. Stop now and write your report from what you found so "
+                "far, saying what is unfinished.",
+            }
+        )
+        try:
+            final = self.ask_worker(messages, [])
+        except (OSError, requests.RequestException, ValueError, KeyError):
+            final = {}
+        text = str(final.get("content") or "").strip()
+        if text and not final.get("tool_calls"):
+            return "partial", text, actions
         return "error", f"Stopped after {limit} steps without finishing.", actions
 
     def ask_worker(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
@@ -152,6 +189,8 @@ class DelegateTask(_AgentTool):
     def run_tool(self, name: str, arguments: dict[str, Any]) -> str:
         from . import agent_classes  # The registry imports this module, so look it up at call time.
 
+        if name == "web_search":
+            return self.web_search(arguments)
         tool = agent_classes.get(name)
         if tool is None or tool is DelegateTask:
             return json.dumps({"ok": False, "error": f"No tool named {name}"})
@@ -159,6 +198,20 @@ class DelegateTask(_AgentTool):
         config = {**self.tool_config, "_tool_timeout": WORKER_TOOL_TIMEOUT_S, "_agent_source": "worker"}
         tool(sink, config).run("worker", arguments)
         return str(sink.items[0]["content"]) if sink.items else json.dumps({"ok": False, "error": "No result"})
+
+    def web_search(self, arguments: dict[str, Any]) -> str:
+        manager = self.tool_config.get("mcp_manager")
+        query = str(arguments.get("query") or "").strip()
+        if manager is None or not query:
+            return json.dumps(
+                {"ok": False, "error": "Web search is unavailable" if manager is None else "Give a query"}
+            )
+        results = min(8, max(1, int(arguments.get("numResults") or 5)))
+        try:
+            found = manager.call_tool(WEB_SEARCH, {"query": query[:400], "numResults": results}, timeout=60)
+        except Exception as exc:  # noqa: BLE001 - a failed search is a result the worker can work around
+            return json.dumps({"ok": False, "error": f"Search failed: {exc}"[:300]})
+        return str(found)[: self.config.output_chars]
 
     def report(self, status: str, task: str, text: str, actions: list[str]) -> TaskResult:
         _notify_desktop(f"GLaDOS: agent task {status}", task[:120])

@@ -32,10 +32,18 @@ SEARCH_INSTRUCTION = (
     "and briefly name the source. For partial findings, give what was found and say what is missing; if it failed, "
     "say so. Do not announce another search and do not invent facts."
 )
+AGENT_INSTRUCTION = (
+    "A background task you started earlier has finished. The quoted slot holds what you asked your worker to do "
+    "and its report, or why it failed. Bring it up yourself, naming the task so the user knows which one it is, "
+    "and give the result in one to three short sentences in the language of the conversation. Report only what "
+    "the worker found; if it failed or is incomplete, say so plainly."
+)
 DIRECT_SLOT_HANDLERS: dict[str, tuple[str, str]] = {
     "task_nexus_": (NEXUS_INSTRUCTION, "Requested Nexus consultation finished"),
     # Reviewing it first on the local model delayed the answer by minutes.
     "task_search_": (SEARCH_INSTRUCTION, "Requested web search finished"),
+    # The user moved on to other things meanwhile: the finished job is announced without a review.
+    "task_agent_": (AGENT_INSTRUCTION, "Background task finished"),
 }
 DIRECT_SLOT_PREFIXES: tuple[str, ...] = tuple(DIRECT_SLOT_HANDLERS.keys())
 

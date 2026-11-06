@@ -32,6 +32,15 @@ ACTION_TOOL_INSTRUCTIONS = (
     "If no offered tool can do it, say plainly that you cannot."
 )
 
+DELEGATE_INSTRUCTIONS = (
+    "You can run several jobs at once. A job that needs several steps, research or more than a few seconds "
+    "(investigating GitHub or the web, comparing sources, coding, organising files) goes to delegate_task now, with "
+    "a complete self-contained description; then say in one short sentence that you are on it, and do not attempt "
+    "it yourself in this reply. You stay available while tasks run: answer new requests directly, and give each "
+    "independent job its own delegate_task. A quick answer you can give right away, or a figure a tool returns, is "
+    "not a job: just answer. Never state a task's result before it reports back."
+)
+
 ROUTING_FALLBACK_INSTRUCTIONS = (
     "[Routing status for this request]\nThe fast router did not authorize a fixed action. Interpret "
     "the original request yourself using the offered read-only capabilities."

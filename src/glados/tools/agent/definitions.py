@@ -63,7 +63,8 @@ agent_definitions: list[dict[str, Any]] = [
     _definition(
         "browser",
         "Drive your own Chromium window (separate profile, visible to the owner) to visit sites, read pages, follow "
-        "links, fill forms and click. Actions: " + "; ".join(f"{n} ({w})" for n, w in BROWSER_ACTIONS.items()),
+        "links, fill forms and click, when the owner wants to see a page or have something done in one. Actions: "
+        + "; ".join(f"{n} ({w})" for n, w in BROWSER_ACTIONS.items()),
         {
             "action": {"type": "string", "enum": list(BROWSER_ACTIONS)},
             "value": {"type": "string"},
@@ -94,8 +95,10 @@ agent_definitions: list[dict[str, Any]] = [
     ),
     _definition(
         "delegate_task",
-        "Hand a complex or long multi-step job (coding, investigating, organising files, setting something up) to "
-        "a stronger background worker that has the same tools. It reports when done; keep talking meanwhile.",
+        "Start a background task: a stronger worker with the same tools plus web search and the GitHub CLI does the "
+        "job while you keep talking, and reports when done. Use it first for anything that means looking things up "
+        "on the web or GitHub, comparing several pages or sources, coding, organising files, or any job of more "
+        "than a few steps. One call per independent job.",
         {"task": {"type": "string", "description": "Complete, self-contained description of the goal"}},
         ["task"],
     ),
