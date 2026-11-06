@@ -123,6 +123,11 @@ Windows users should install Python 3.12+ and, if a runtime DLL is missing, the
 [Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist).
 The AMD installer path is Linux-only. macOS support remains experimental.
 
+On Windows 10/11 you can instead double-click `scripts\install_windows.bat`. It
+uses winget to install Git, uv, the Visual C++ Redistributable and Ollama, runs
+`install.py` with a uv-managed Python 3.12, then pulls the Ollama models
+(`-NoOllama`, `-Backend cpu|cuda`, `-Api` and `-OllamaModels <names>` are accepted).
+
 ### 2. Start the conversation model
 
 Install a Gemma 4-capable CUDA `llama-server` separately. Download these two files

@@ -186,7 +186,7 @@ def main() -> None:
 
     # Install project in editable mode
     env = os.environ.copy()
-    env["PATH"] = f"{os.path.abspath(venv_bin)}:{env['PATH']}"
+    env["PATH"] = f"{os.path.abspath(venv_bin)}{os.pathsep}{env['PATH']}"
     env["VIRTUAL_ENV"] = os.path.abspath(".venv")
     venv_python = str(Path(venv_bin) / ("python.exe" if os.name == "nt" else "python"))
     if backend == "amd":
