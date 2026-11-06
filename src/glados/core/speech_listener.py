@@ -32,9 +32,9 @@ FILLER_WORDS = frozenset(
 )
 
 
-def _is_filler(text: str) -> bool:
+def _is_filler(text: str, fillers: frozenset[str] = FILLER_WORDS) -> bool:
     words = re.findall(r"[^\W\d_]+", text.casefold())
-    return all(word in FILLER_WORDS for word in words)
+    return all(word in fillers for word in words)
 
 
 # Callback signature: (event_type: str) -> None
@@ -320,6 +320,9 @@ class SpeechListener:
         else:
             self._gap_counter = 0
 
+    # A lone "Yeah." is ASR noise for a French speaker, but an English speaker's "Ouais.": bilingual setups keep it.
+    FILLERS: frozenset[str] = FILLER_WORDS
+
     # Seconds after GLaDOS last spoke during which a reply needs no wake word (0 disables it).
     WAKE_FOLLOW_UP_S: float = 0.0
 
@@ -342,7 +345,7 @@ class SpeechListener:
                 logger.info(f"Wake word heard: listening without it for {self.WAKE_SESSION_S:.0f} s.")
             self._wake_heard_at = now
             return True
-        if _is_filler(text):
+        if _is_filler(text, self.FILLERS):
             return False
         heard = self._wake_heard_at
         return (self.WAKE_SESSION_S > 0 and heard is not None and now - heard <= self.WAKE_SESSION_S) or (

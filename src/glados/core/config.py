@@ -21,11 +21,16 @@ from .inference import InferenceConfig
 from .native_audio import NativeAudioConfig
 from .routing import RoutingConfig
 
-FRENCH_TURN_REMINDER = "Réponds en français, même si la demande, le contexte ou les outils sont en anglais."
 FRENCH_REPLY_INSTRUCTION = (
     "Language: the user speaks French. Always reply in natural spoken French, keeping your GLaDOS personality, "
     "whatever the language of these instructions, tool results or memory. Write numbers, times and units the way "
     "they are said aloud in French."
+)
+BILINGUAL_REPLY_INSTRUCTION = (
+    "Language: the user speaks French or English and may switch at any time. Always reply in the language of "
+    "their latest message, equally naturally in both, keeping your GLaDOS personality, whatever the language of "
+    "these instructions, tool results or memory. Write numbers, times and units the way they are said aloud in "
+    "that language."
 )
 
 
@@ -113,9 +118,12 @@ class GladosConfig(BaseModel):
             "Silence that ends an utterance. Lower replies sooner but may cut slow speakers off mid-sentence."
         ),
     )
-    language: Literal["en", "fr"] = Field(
+    language: Literal["en", "fr", "auto"] = Field(
         default="en",
-        description=("Spoken language: replies, ASR expectations and GLaDOS-voice phonemization (fr uses espeak-ng)."),
+        description=(
+            "Spoken language: replies, ASR expectations and GLaDOS-voice phonemization (fr uses espeak-ng). "
+            "auto is bilingual: she answers in French or English, whichever the user last spoke, with that voice."
+        ),
     )
     slow_clap_audio_path: str = "data/slow-clap.mp3"
     tool_timeout: float = 30.0
@@ -128,8 +136,8 @@ class GladosConfig(BaseModel):
     @model_validator(mode="after")
     def _french_speech_is_addressed(self) -> "GladosConfig":
         # A profile that ignores non-English speech would otherwise discard every French request.
-        if self.language == "fr" and (self.routing.addressed_language or "").lower() == "english":
-            self.routing.addressed_language = "French"
+        if self.language != "en" and (self.routing.addressed_language or "").lower() == "english":
+            self.routing.addressed_language = "French" if self.language == "fr" else "French or English"
         return self
 
     @model_validator(mode="after")
@@ -287,4 +295,6 @@ class GladosConfig(BaseModel):
         messages = [prompt.to_chat_message() for prompt in self.personality_preprompt]
         if self.language == "fr":
             messages.append({"role": "system", "content": FRENCH_REPLY_INSTRUCTION})
+        elif self.language == "auto":
+            messages.append({"role": "system", "content": BILINGUAL_REPLY_INSTRUCTION})
         return messages

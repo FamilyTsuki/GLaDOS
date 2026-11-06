@@ -49,13 +49,14 @@ from .audio_data import AudioMessage
 from .audio_state import AudioState
 from .background_cores import register_background_cores
 from .commands import CommandSpec, GladosCommands  # noqa: F401 - CommandSpec re-exported
-from .config import FRENCH_REPLY_INSTRUCTION, FRENCH_TURN_REMINDER, GladosConfig, PersonalityPrompt  # noqa: F401
+from .config import FRENCH_REPLY_INSTRUCTION, GladosConfig, PersonalityPrompt  # noqa: F401
 from .context import ContextBuilder
 from .conversation_store import ConversationStore
 from .decision_lists import DecisionListStore
 from .hardware import HardwareAdaptationController, detect_hardware, get_adaptive_llm_settings
 from .inference import InferenceConfig, InferenceScheduler
 from .knowledge_store import KnowledgeStore
+from .language import FRENCH_TURN_REMINDER, LanguageState, detect_language
 from .llm_processor import LanguageModelProcessor
 from .llm_tracking import InFlightCounter
 from .native_audio import NativeAudioConfig, NativeAudioInput
@@ -63,7 +64,7 @@ from .operator_state import OperatorState
 from .routing import DecisionRouter, RoutingConfig
 from .shutdown import ShutdownOrchestrator, ShutdownPriority
 from .speech_animation import SpeechAnimationState
-from .speech_listener import SpeechListener
+from .speech_listener import FILLER_WORDS, SpeechListener
 from .speech_markup import SpeechText
 from .speech_player import SpeechPlayer
 from .store import Store, format_preferences
@@ -112,6 +113,7 @@ class Glados(GladosCommands):
         wake_word_follow_up_s: float = 0.0,
         wake_word_session_s: float = 0.0,
         language: str = "en",
+        language_state: LanguageState | None = None,
         announcement: str | None = None,
         personality_preprompt: tuple[dict[str, str], ...] = DEFAULT_PERSONALITY_PREPROMPT,
         tool_config: dict[str, Any] | None = None,
@@ -147,6 +149,7 @@ class Glados(GladosCommands):
         self.inference_scheduler = InferenceScheduler(inference_config)
         self.end_of_speech_ms = end_of_speech_ms
         self.language = language
+        self.language_state = language_state
         self.wake_word_follow_up_s = wake_word_follow_up_s
         self.wake_word_session_s = wake_word_session_s
         native_audio = (
@@ -370,6 +373,8 @@ class Glados(GladosCommands):
             self.speech_listener.PAUSE_LIMIT = getattr(self, "end_of_speech_ms", SpeechListener.PAUSE_LIMIT)
             self.speech_listener.WAKE_FOLLOW_UP_S = getattr(self, "wake_word_follow_up_s", 0.0)
             self.speech_listener.WAKE_SESSION_S = getattr(self, "wake_word_session_s", 0.0)
+            if getattr(self, "language", "en") != "fr":
+                self.speech_listener.FILLERS = FILLER_WORDS - {"yeah"}
         if self.input_mode in {"text", "both"}:
             if self.input_mode == "text":
                 logger.info("Text input mode enabled. ASR is disabled.")
@@ -611,6 +616,7 @@ class Glados(GladosCommands):
         for processor in [self.llm_processor, *getattr(self, "autonomy_llm_processors", [])]:
             if processor is not None:
                 processor.language_reminder = reminder
+                processor.language_state = getattr(self, "language_state", None)
         # Define thread configurations with daemon settings and shutdown priorities
         # daemon=True: Can be killed without waiting (pure input, stateless)
         # daemon=False: Must be joined (has in-flight state to preserve)
@@ -784,8 +790,16 @@ class Glados(GladosCommands):
         if config.input_mode != "text" and not config.native_audio.enabled:
             asr_model = get_audio_transcriber(engine_type=config.asr_engine)
 
+        # Bilingual mode starts in the announcement's language, then follows the user.
+        language_state = (
+            LanguageState(detect_language(config.announcement or "", "en")) if config.language == "auto" else None
+        )
         tts_model: SpeechSynthesizerProtocol
-        tts_model = get_speech_synthesizer(config.voice, language=config.language)
+        tts_model = get_speech_synthesizer(
+            config.voice,
+            language=config.language,
+            current_language=(lambda: language_state.current) if language_state else (lambda: "en"),
+        )
 
         audio_io = get_audio_system(
             backend_type=config.audio_io,
@@ -819,6 +833,7 @@ class Glados(GladosCommands):
                 wake_word_follow_up_s=config.wake_word_follow_up_s,
                 wake_word_session_s=config.wake_word_session_s,
                 language=config.language,
+                language_state=language_state,
                 announcement=config.announcement,
                 personality_preprompt=tuple(config.to_chat_messages()),
                 tool_config={"slow_clap_audio_path": config.slow_clap_audio_path, "agent": config.agent},

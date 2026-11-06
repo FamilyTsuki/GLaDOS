@@ -292,15 +292,16 @@ def is_self_improve_request(content: str) -> bool:
     return SELF_IMPROVE_REQUEST.search(fold(content)) is not None
 
 
-# Accent-free stems of an explicit web lookup, and of a short "yes, go ahead".
+# Accent-free stems of an explicit web lookup, and of a short "yes, go ahead", in French and English alike.
 SEARCH_REQUEST = re.compile(
-    r"cherch|\bgoogl|\bsur (internet|le web|le net)\b|\ben ligne\b|\bsearch\b|\blook (it |that )?up\b"
+    r"cherch|\bgoogl|\bsur (internet|le web|le net)\b|\ben ligne\b"
+    r"|\bsearch|\blook (it |that |this )?up\b|\bon (the )?(internet|web|net)\b|\bonline\b"
 )
 AFFIRMATION = re.compile(
     r"^\W*(oui|ouais|ok|okay|d'?accord|vas[- ]y|go|fais[- ]le|lance|c'?est ca|exactement|carrement|bien sur"
-    r"|yes|yep|sure)\b"
+    r"|yes|yeah|yep|sure|do it|please do|alright|exactly|of course|that'?s it|right)\b"
 )
-SEARCH_OFFER = re.compile(r"cherch|verifi|chiffres? exacts?|\bsource")
+SEARCH_OFFER = re.compile(r"cherch|verifi|chiffres? exacts?|\bsource|search|look (it |that )?up|\bcheck|exact figure")
 # "Cherche le fichier..." is an agent request on this PC, not a web lookup.
 LOCAL_TARGET = re.compile(
     r"fichier|dossier|repertoire|\bfiles?\b|folder|director|\bpc\b|ordi|disque|\bdisk|\bcode\b|projet|project"

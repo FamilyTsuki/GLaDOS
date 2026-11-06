@@ -34,6 +34,8 @@ class SpeechText:
     generation: int | None = None
     autonomy_generation: int | None = None
     autonomy_cycle: str | None = None
+    language: str | None = None
+    """Reply language in bilingual mode, so the matching voice reads it."""
 
 
 class SpeechMarkupParser:

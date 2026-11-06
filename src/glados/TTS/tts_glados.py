@@ -13,6 +13,7 @@ from ..utils.resources import resource_path
 from ..utils.safe_pickle import load_data_pickle
 from .espeak import EspeakPhonemizer
 from .phonemizer import Phonemizer
+from .prosody import prosody_for, shift_pitch
 
 # Default OnnxRuntime is way to verbose, only show fatal errors
 ort.set_default_logger_severity(4)
@@ -197,7 +198,7 @@ class SpeechSynthesizer:
         """
         return load_data_pickle(path)
 
-    def generate_speech_audio(self, text: str) -> NDArray[np.float32]:
+    def generate_speech_audio(self, text: str, emotion: str | None = None) -> NDArray[np.float32]:
         """
         Convert input text to synthesized speech audio.
 
@@ -206,17 +207,29 @@ class SpeechSynthesizer:
 
         Parameters:
             text (str): The text to be converted to speech
+            emotion (str | None): Expression of the line; it shapes speed, pitch and liveliness alike in
+                every language.
 
         Returns:
             NDArray[np.float32]: An array of audio samples representing the synthesized speech
         """
         phonemes = self._phonemizer(text)
         phoneme_ids_list = [self._phonemes_to_ids(sentence) for sentence in phonemes]
-        audio_chunks = [self._synthesize_ids_to_audio(phoneme_ids) for phoneme_ids in phoneme_ids_list]
+        prosody = prosody_for(emotion)
+        audio_chunks = [
+            self._synthesize_ids_to_audio(
+                phoneme_ids,
+                # Synthesized `pitch` times longer, then resampled back: see prosody.shift_pitch.
+                length_scale=self.config.length_scale * prosody.speed * prosody.pitch,
+                noise_scale=self.config.noise_scale * prosody.liveliness,
+                noise_w=self.config.noise_w * prosody.liveliness,
+            )
+            for phoneme_ids in phoneme_ids_list
+        ]
 
         if audio_chunks:
             audio: NDArray[np.float32] = np.concatenate(audio_chunks, axis=1).T
-            return audio
+            return shift_pitch(audio, prosody.pitch)
         return np.array([], dtype=np.float32)
 
     def _phonemizer(self, input_text: str) -> list[str]:

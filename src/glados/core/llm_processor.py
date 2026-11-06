@@ -31,6 +31,7 @@ from .context_inspection import describe_context
 from .conversation_store import ConversationStore
 from .hardware import HardwareAdaptationController
 from .inference import InferenceCancelledError, InferenceScheduler
+from .language import TURN_REMINDERS, LanguageState
 from .llm_tracking import InFlightCounter
 from .llm_wire import LLMWireFormat
 from .native_audio import NativeAudioInput
@@ -158,6 +159,8 @@ class LanguageModelProcessor(LLMWireFormat):
         self._observability_bus = observability_bus
         # Set by the engine for non-English profiles; added beside each user input.
         self.language_reminder: str | None = None
+        self.language_state: LanguageState | None = None
+        """Bilingual mode: the user's latest language picks the reminder, built-in lines and voice."""
         self._lane = lane
         self._inflight_counter = inflight_counter
         self._inference_scheduler = inference_scheduler
@@ -316,13 +319,24 @@ class LanguageModelProcessor(LLMWireFormat):
                     self._reply_generation,
                     self._autonomy_meta.get("_autonomy_generation") if self._autonomy_response else None,
                     self._autonomy_meta.get("_autonomy_cycle") if self._autonomy_response else None,
+                    self._reply_language(),
                 )
             )
             self._response_has_text = True
 
     def _say_fixed(self, english: str, french: str) -> None:
         """Speak a built-in line in the reply language."""
-        self._process_sentence_for_tts([french if self.language_reminder else english])
+        speaks_french = self._reply_language() == "fr" if self.language_state else bool(self.language_reminder)
+        self._process_sentence_for_tts([french if speaks_french else english])
+
+    def _reply_language(self) -> str | None:
+        return self.language_state.current if self.language_state else None
+
+    def _turn_reminder(self) -> str | None:
+        """Small models drift towards the language of the context; name the reply language beside the input."""
+        if self.language_state:
+            return TURN_REMINDERS[self.language_state.current]
+        return self.language_reminder
 
     def _build_context_entries(self, autonomy_mode: bool, *, preview: bool = False) -> list[dict[str, Any]]:
         """Assemble real inference messages with provenance kept out of the payload."""
@@ -522,8 +536,8 @@ class LanguageModelProcessor(LLMWireFormat):
 
     def _add_reply_instructions(self, messages: list[dict[str, Any]], tool_names: set[str]) -> None:
         """Apply the same request instructions to routed drafts and normal replies."""
-        if self.language_reminder:
-            self._add_request_context(messages, self.language_reminder)
+        if reminder := self._turn_reminder():
+            self._add_request_context(messages, reminder)
         if INTERNET_SEARCH_TOOL in tool_names:
             self._add_request_context(messages, SEARCH_AVAILABLE_INSTRUCTIONS)
         if "self_improve" in tool_names:
@@ -571,6 +585,14 @@ class LanguageModelProcessor(LLMWireFormat):
         self._apply_backend()
         turn.autonomy_mode = bool(turn.llm_input.get("autonomy", False))
         self._autonomy_response = bool(turn.llm_input.get("_autonomy_response"))
+        content = turn.llm_input.get("content")
+        if (
+            self.language_state
+            and not turn.autonomy_mode
+            and turn.llm_input.get("role") == "user"
+            and isinstance(content, str)
+        ):
+            self.language_state.observe(content)
         if turn.autonomy_mode or self._autonomy_response:
             self._autonomy_meta = {
                 k: turn.llm_input[k]

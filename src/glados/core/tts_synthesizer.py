@@ -1,4 +1,5 @@
 from collections.abc import Callable
+import inspect
 import queue
 import threading
 import time
@@ -43,6 +44,9 @@ class TextToSpeechSynthesizer:
         self.tts_input_queue = tts_input_queue
         self.audio_output_queue = audio_output_queue
         self.tts_model = tts_model
+        self._bilingual = getattr(tts_model, "language", None) == "auto"
+        # The GLaDOS voices let the expression shape the delivery; Kokoro voices take text only.
+        self._emotional = "emotion" in inspect.signature(tts_model.generate_speech_audio).parameters
         self.stc = stc_instance
         self.shutdown_event = shutdown_event
         self.pause_time = pause_time
@@ -52,11 +56,17 @@ class TextToSpeechSynthesizer:
         self._quiet_mode, self._quiet_generation = quiet_mode, quiet_generation
         self._autonomy_generation, self._autonomy_enabled = autonomy_generation, autonomy_enabled
 
-    def _spoken(self, text: str) -> str:
+    def _language(self, text: str, hint: str | None) -> str:
+        """Which voice reads this line: a bilingual model decides per line, others have one language."""
+        if self._bilingual:
+            return self.tts_model.language_of(text, hint)  # type: ignore[attr-defined]
+        return getattr(self.tts_model, "language", "en")
+
+    def _spoken(self, text: str, language: str | None = None) -> str:
         # Emoji have no sound; voices either skip them or spell out their names.
         text = _EMOJI.sub("", text)
         # The converter spells numbers and units out in English; espeak voices read them natively.
-        if getattr(self.tts_model, "language", "en") != "en":
+        if (language or getattr(self.tts_model, "language", "en")) != "en":
             return text
         return self.stc.text_to_spoken(text)
 
@@ -130,9 +140,18 @@ class TextToSpeechSynthesizer:
                             )
 
                         start_time = time.time()
-                        spoken_text_variant = self._spoken(segment.text)
+                        language = self._language(segment.text, getattr(segment, "language", None))
+                        spoken_text_variant = self._spoken(segment.text, language)
                         if self._tts_muted_event and self._tts_muted_event.is_set():
                             audio_data = np.array([], dtype=np.float32)
+                        elif self._bilingual:
+                            audio_data = self.tts_model.generate_speech_audio(  # type: ignore[call-arg]
+                                spoken_text_variant, language, emotion=segment.emotion
+                            )
+                        elif self._emotional:
+                            audio_data = self.tts_model.generate_speech_audio(  # type: ignore[call-arg]
+                                spoken_text_variant, emotion=segment.emotion
+                            )
                         else:
                             audio_data = self.tts_model.generate_speech_audio(spoken_text_variant)
                         if (
