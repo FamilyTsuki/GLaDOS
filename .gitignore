@@ -198,6 +198,8 @@ data/preferences.yaml
 data/preferences.yaml.tmp
 data/operator_settings.yaml
 data/operator_settings.yaml.tmp
+data/nexus_settings.yaml
+data/nexus_settings.yaml.tmp
 
 
 
