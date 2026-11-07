@@ -6,9 +6,25 @@ Punctuation is kept between clauses because the model uses it for pauses and int
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 import re
 import shutil
 import subprocess
+
+
+def find_espeak() -> str | None:
+    """Find espeak-ng on PATH, or where its Windows installer puts it (not added to PATH)."""
+    binary = shutil.which("espeak-ng")
+    if binary is not None:
+        return binary
+    for base in (os.environ.get("ProgramFiles"), os.environ.get("ProgramFiles(x86)")):
+        if base:
+            candidate = Path(base) / "eSpeak NG" / "espeak-ng.exe"
+            if candidate.is_file():
+                return str(candidate)
+    return None
+
 
 _CLAUSE = re.compile(r"([^.,;:!?…]+)([.,;:!?…]*)")
 _SENTENCE_END = set(".!?…")
@@ -18,6 +34,8 @@ RESPELLINGS = {
     "fr": {
         r"\bGLaDOS\b": "Gladosse",
         r"\bAperture\b": "Apertchur",
+        # espeak reads enthousiasme/-aste/-asmer as English ("enthauziasm").
+        r"\benthousias": "antousias",
         r"\b(\d{1,2}) ?h ?(\d{2})\b": r"\1 heures \2",
         r"\b(\d{1,2}) ?h\b": r"\1 heures",
     }
@@ -26,7 +44,7 @@ RESPELLINGS = {
 
 class EspeakPhonemizer:
     def __init__(self, language: str) -> None:
-        binary = shutil.which("espeak-ng")
+        binary = find_espeak()
         if binary is None:
             raise RuntimeError(f"espeak-ng is required for '{language}' speech with the GLaDOS voice")
         self._binary = binary
@@ -41,6 +59,8 @@ class EspeakPhonemizer:
             input=text,
             capture_output=True,
             text=True,
+            # espeak-ng speaks UTF-8; Windows would otherwise decode its IPA with the ANSI code page.
+            encoding="utf-8",
             check=True,
             timeout=10,
         )

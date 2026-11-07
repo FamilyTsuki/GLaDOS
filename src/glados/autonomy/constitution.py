@@ -119,6 +119,8 @@ class PromptModifier:
     value: Any
     reason: str
     applied_at: float = 0.0
+    pinned: bool = False
+    """Chosen by GLaDOS on the owner's request; the Observer may not override it."""
 
     def to_prompt_fragment(self) -> str:
         """Convert this modifier to a prompt fragment."""
@@ -171,6 +173,9 @@ class ConstitutionalState:
         """
         if not self.constitution.validate_modification(modifier.field_name, modifier.value):
             return False
+        current = self.active_modifiers.get(modifier.field_name)
+        if current is not None and current.pinned and not modifier.pinned:
+            return False
 
         self.active_modifiers[modifier.field_name] = modifier
         self.modifier_history.append(modifier)
@@ -212,7 +217,8 @@ class ConstitutionalState:
             "immutable_rules": self.constitution.immutable_rules,
             "modifiable_bounds": self.constitution.modifiable_bounds,
             "active_modifiers": {
-                name: {"value": m.value, "reason": m.reason} for name, m in self.active_modifiers.items()
+                name: {"value": m.value, "reason": m.reason, "pinned": m.pinned}
+                for name, m in self.active_modifiers.items()
             },
             "history_count": len(self.modifier_history),
         }

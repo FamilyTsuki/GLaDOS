@@ -79,6 +79,7 @@ def test_full_assistant_receives_original_audio_and_limited_tools(
             "run_safe_command",
             "get_report",
             "get_preferences",
+            "inspect_self",
         }
         | ({_wire(INTERNET_SEARCH_TOOL)} if search_enabled else set())
     )

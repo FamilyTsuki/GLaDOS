@@ -27,11 +27,12 @@ Glados:
       reddit: []  # Domain/path, e.g. reddit.com/r/LocalLLaMA.
       general: []
   llm_model: "gemma-4-E4B"
+  language: "fr"  # Always French: replies, routing and the French GLaDOS voice (espeak-ng).
   completion_url: "http://127.0.0.1:18080/v1/chat/completions"
   native_audio:
     enabled: true
     user_transcripts: false  # Optional Gemma transcript; never loads Parakeet.
-    language: "English"
+    language: "French"
   llm_request_options:
     chat_template_kwargs:
       enable_thinking: false
@@ -46,7 +47,7 @@ Glados:
   llm_headers: null  # Optional extra headers (e.g., OpenRouter HTTP-Referer, X-Title)
   wake_word: null
   voice: "glados"
-  announcement: "All neural network modules are now loaded. System Operational."
+  announcement: "Tous les modules de réseau neuronal sont chargés. Système opérationnel."
 
   # --- webapp observability console ---------------------------------------
   # Default OFF. Enable here, or set GLADOS_WEBAPP_ENABLED=1 / _PORT / _HOST

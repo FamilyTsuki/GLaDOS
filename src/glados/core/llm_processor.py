@@ -45,6 +45,7 @@ from .prompts import (
     SEARCH_COMPLETED_INSTRUCTIONS,
     SEARCH_FINDINGS_INSTRUCTIONS,
     SEARCH_PENDING_INSTRUCTIONS,
+    SELF_CONTROL_INSTRUCTIONS,
     SELF_IMPROVE_AVAILABLE_INSTRUCTIONS,
     VOICE_REPLY_INSTRUCTIONS,
 )
@@ -545,6 +546,8 @@ class LanguageModelProcessor(LLMWireFormat):
             self._add_request_context(messages, SEARCH_AVAILABLE_INSTRUCTIONS)
         if "self_improve" in tool_names:
             self._add_request_context(messages, SELF_IMPROVE_AVAILABLE_INSTRUCTIONS)
+        if "adjust_self" in tool_names:
+            self._add_request_context(messages, SELF_CONTROL_INSTRUCTIONS)
         if "delegate_task" in tool_names:
             self._add_request_context(messages, DELEGATE_INSTRUCTIONS)
 
@@ -1006,6 +1009,7 @@ class LanguageModelProcessor(LLMWireFormat):
                     "run_safe_command",
                     "get_report",
                     "get_preferences",
+                    "inspect_self",
                     "vision_look",
                     "read_file",
                     "list_dir",

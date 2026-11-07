@@ -29,6 +29,14 @@ CATEGORIES = {
         "Nexus",
         "Turn the Nexus Core on or off, or consult an external advisor AI for slow, hard or out-of-reach questions",
     ),
+    "self": (
+        "Self",
+        (
+            "Questions about GLaDOS herself (her model, settings, mood, personality), or requests to change her "
+            "own mood (pleasure, arousal, dominance) or how she talks from now on: shorter or longer, more or "
+            "less sarcastic, formal, proactive or technical"
+        ),
+    ),
     "other": ("Other tools", "Use another local tool, such as a requested slow clap"),
 }
 # "slow clap" is the pre-rename spelling still found in saved decision lists.
@@ -45,6 +53,8 @@ LOCAL_CATEGORIES = {
     "manage_slot": "tasks",
     "nexus_control": "nexus",
     "nexus_consult": "nexus",
+    "inspect_self": "self",
+    "adjust_self": "self",
 }
 
 

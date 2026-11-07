@@ -114,13 +114,19 @@ Write-Step 'System dependencies'
 Install-WingetPackage 'Git.Git' 'Git' { Test-Command 'git' }
 Install-WingetPackage 'astral-sh.uv' 'uv' { Test-Command 'uv' }
 Install-WingetPackage 'Microsoft.VCRedist.2015+.x64' 'Visual C++ Redistributable' { Test-VCRedist }
+# The French GLaDOS voice phonemizes text with espeak-ng.
+Install-WingetPackage 'eSpeak-NG.eSpeak-NG' 'eSpeak NG' {
+    (Test-Command 'espeak-ng') -or (Test-Path "$env:ProgramFiles\eSpeak NG\espeak-ng.exe")
+}
 if (-not $NoOllama) {
     Install-WingetPackage 'Ollama.Ollama' 'Ollama' { Test-Command 'ollama' }
 }
 
 Write-Step "Python environment, ONNX runtime ($Backend) and speech models"
 # uv downloads Python 3.12 itself: no system Python needed.
-$installArgs = @('run', '--no-project', '--python', '3.12', 'scripts\install.py', '--backend', $Backend)
+# --isolated keeps uv from running install.py with .venv\Scripts\python.exe,
+# which would lock the file install.py needs to recreate (os error 32).
+$installArgs = @('run', '--no-project', '--isolated', '--python', '3.12', 'scripts\install.py', '--backend', $Backend)
 if ($Api) { $installArgs += '--api' }
 Invoke-Checked 'scripts\install.py' 'uv' $installArgs
 Write-Ok 'Python environment ready'

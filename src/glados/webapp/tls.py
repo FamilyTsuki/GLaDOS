@@ -56,8 +56,24 @@ def _subject_alt_names(hosts: frozenset[str]) -> str:
     return ",".join(names)
 
 
-def _openssl(*args: str) -> None:
+def _find_openssl() -> str | None:
+    """Find openssl on PATH, or the copy bundled with Git for Windows."""
     openssl = shutil.which("openssl")
+    if openssl is not None:
+        return openssl
+    git = shutil.which("git")
+    if git is None:
+        return None
+    # git.exe lives in <Git>\cmd or <Git>\bin; openssl ships in <Git>\usr\bin and <Git>\mingw64\bin.
+    git_root = Path(git).resolve().parent.parent
+    for candidate in (git_root / "usr" / "bin" / "openssl.exe", git_root / "mingw64" / "bin" / "openssl.exe"):
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+def _openssl(*args: str) -> None:
+    openssl = _find_openssl()
     if openssl is None:
         raise RuntimeError("openssl is required to generate the console's HTTPS certificate")
     subprocess.run([openssl, *args], check=True, capture_output=True, timeout=30)

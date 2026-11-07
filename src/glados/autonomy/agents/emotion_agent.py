@@ -337,6 +337,38 @@ class EmotionAgent(Subagent):
             )
             self._save_state()
 
+    def set_mood(self, values: dict[str, float], lasting: bool = False, cause: str = "Self-adjusted") -> dict[str, Any]:
+        """Set PAD axes directly (-1 to 1). ``lasting`` also moves the baseline she drifts back to."""
+        unknown = set(values) - set(PAD_AXES)
+        if unknown:
+            raise ValueError(f"Unknown mood axes: {sorted(unknown)}; use {list(PAD_AXES)}")
+        clamped = {axis: max(-1.0, min(1.0, float(value))) for axis, value in values.items()}
+        with self._update_lock:
+            self._generation += 1  # A rating in flight belongs to the old mood.
+            self._apply_baseline_drift()
+            for axis, value in clamped.items():
+                setattr(self._state, axis, value)
+                setattr(self._state, "mood_" + axis, value)
+                if lasting:
+                    setattr(self._emotion_config, "baseline_" + axis, value)
+            self._state.last_update = time.time()
+            with self._events_lock:
+                self._events.clear()
+            self._history.append(
+                {
+                    "at": time.time(),
+                    **{axis: getattr(self._state, axis) for axis in PAD_AXES},
+                    "expression": self._state.expression(),
+                    "cause": cause,
+                }
+            )
+            self._save_state()
+            return {
+                "state": {axis: round(getattr(self._state, axis), 2) for axis in PAD_AXES},
+                "baseline": {axis: getattr(self._emotion_config, "baseline_" + axis) for axis in PAD_AXES},
+                "expression": self._state.expression(),
+            }
+
     def _blend(self, state: EmotionState, values: list[float]) -> EmotionState:
         """The rated emotion now, with the slower mood drifting towards it."""
         result = replace(state)

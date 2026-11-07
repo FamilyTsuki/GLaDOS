@@ -535,6 +535,9 @@ class Glados(GladosCommands):
                 "search_agent": self.search_agent,
                 "nexus_agent": self.nexus_agent,
                 "memory_agent": self.compaction_agent,
+                "engine": self,  # inspect_self reads the live setup.
+                "emotion_agent": lambda: self._emotion_agent,  # Started after the tools.
+                "constitutional_state": self.constitutional_state,
                 "conversation_store": self._conversation_store,
                 "interaction_state": self.interaction_state,
                 "agent_state": self.agent_state,
