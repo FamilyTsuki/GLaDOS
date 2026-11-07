@@ -67,7 +67,7 @@ from .speech_animation import SpeechAnimationState
 from .speech_listener import FILLER_WORDS, SpeechListener
 from .speech_markup import SpeechText
 from .speech_player import SpeechPlayer
-from .store import Store, format_preferences
+from .store import Store, format_manners, format_preferences
 from .text_listener import TextListener
 from .tool_executor import ToolExecutor
 from .tts_synthesizer import TextToSpeechSynthesizer
@@ -253,11 +253,15 @@ class Glados(GladosCommands):
             path=resource_path("data/preferences.yaml"),
             formatter=format_preferences,
         )
+        self.manners_store = Store[Any](path=resource_path("data/manners.yaml"), formatter=format_manners)
+        if self.language_state and self.manners_store.get("language") in {"fr", "en"}:
+            self.language_state.set(self.manners_store.get("language"))  # The language the owner last asked for.
 
         # Create unified context builder for LLM context injection
         self.context_builder = ContextBuilder()
         self.context_builder.register("operator", self.operator_state.as_prompt, priority=20)
         self.context_builder.register("preferences", self.preferences_store.as_prompt, priority=10)
+        self.context_builder.register("manners", self.manners_store.as_prompt, priority=19)
         self.context_builder.register("knowledge", lambda: self._format_knowledge(), priority=5)
         self.context_builder.register("constitution", self.constitutional_state.get_modifiers_prompt, priority=3)
         # The fixed rules come before the modifiers the Observer may adjust within them.
@@ -538,6 +542,8 @@ class Glados(GladosCommands):
                 "engine": self,  # inspect_self reads the live setup.
                 "emotion_agent": lambda: self._emotion_agent,  # Started after the tools.
                 "constitutional_state": self.constitutional_state,
+                "manners_store": self.manners_store,
+                "language_state": lambda: self.language_state,
                 "conversation_store": self._conversation_store,
                 "interaction_state": self.interaction_state,
                 "agent_state": self.agent_state,

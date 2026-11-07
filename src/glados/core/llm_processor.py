@@ -1155,6 +1155,9 @@ class LanguageModelProcessor(LLMWireFormat):
             elif turn.search_planning:
                 # An explicit search route must perform a search, including repeated questions.
                 turn.data["tool_choice"] = "required"
+            elif turn.routing_permit and turn.routing_permit["tool_scope"] == ["adjust_self"]:
+                # Otherwise small models announce the change ("Very well, English then") without making it.
+                turn.data["tool_choice"] = "required"
 
     def _build_request(self, turn: ProcessorTurn, *, draft: bool = False) -> None:
         """Resolve context once and share instructions/tool policy between reply and draft."""

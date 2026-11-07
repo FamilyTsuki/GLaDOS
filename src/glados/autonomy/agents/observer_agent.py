@@ -35,7 +35,9 @@ CONSTRAINTS:
 - GLaDOS must remain in character (sarcastic, sardonic AI)
 - Only suggest changes if there's a clear pattern of issues
 - Be conservative - small adjustments are better than large ones
-
+- GLaDOS speaks {language} because the owner chose it: the reply language is never
+  a problem, a misinterpretation or a reason to change anything
+{pinned}
 Analyze the conversation samples and output JSON with your recommendation:
 {{
     "analysis": "Brief analysis of patterns observed",
@@ -47,6 +49,9 @@ Analyze the conversation samples and output JSON with your recommendation:
 }}
 
 Output null for recommendation if no changes are needed."""
+
+
+LANGUAGES = {"en": "English", "fr": "French", "auto": "French or English, matching the user"}
 
 
 class ObserverAgent(Subagent):
@@ -65,6 +70,7 @@ class ObserverAgent(Subagent):
         constitutional_state: ConstitutionalState | None = None,
         sample_count: int = 10,
         min_samples_for_analysis: int = 5,
+        language: str = "en",
         **kwargs: Any,  # noqa: ANN401 - Subagent collaborators are forwarded unchanged.
     ) -> None:
         """
@@ -84,6 +90,7 @@ class ObserverAgent(Subagent):
         self._constitutional_state = constitutional_state or ConstitutionalState()
         self._sample_count = sample_count
         self._min_samples = min_samples_for_analysis
+        self._language = LANGUAGES.get(language, language)
         self._last_analysis_count = 0
 
     @property
@@ -209,7 +216,12 @@ class ObserverAgent(Subagent):
         samples_text = "\n\n".join(formatted)
         bounds_summary = self._constitutional_state.constitution.get_bounds_summary()
 
-        system_prompt = OBSERVER_SYSTEM_PROMPT.format(bounds_summary=bounds_summary)
+        pinned = sorted(name for name, m in self._constitutional_state.active_modifiers.items() if m.pinned)
+        system_prompt = OBSERVER_SYSTEM_PROMPT.format(
+            bounds_summary=bounds_summary,
+            language=self._language,
+            pinned=f"- The owner fixed {', '.join(pinned)}: never suggest changing them\n" if pinned else "",
+        )
         user_prompt = f"Recent GLaDOS outputs to analyze:\n\n{samples_text}"
 
         response = llm_call(

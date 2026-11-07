@@ -218,6 +218,25 @@ def format_preferences(data: dict[str, Any]) -> str | None:
     return "\n".join(lines)
 
 
+def format_manners(data: dict[str, Any]) -> str | None:
+    """The owner's standing choices about how GLaDOS talks to them."""
+    lines = []
+    if data.get("language") in {"fr", "en"}:
+        lines.append(f"- Speak {'French' if data['language'] == 'fr' else 'English'} until the owner asks otherwise.")
+    if data.get("address") == "tu":
+        lines.append('- In French, address the owner with "tu" (tutoiement), not "vous".')
+    elif data.get("address") == "vous":
+        lines.append('- In French, address the owner with "vous" (vouvoiement), never "tu".')
+    if data.get("user_name"):
+        lines.append(f'- Call the owner "{data["user_name"]}" when you address them.')
+    for number, rule in enumerate(data.get("rules") or [], 1):
+        lines.append(f"- Owner rule {number}: {rule}")
+    if not lines:
+        return None
+    header = "[manners] The owner's standing choices; they override your default style (never your rules):"
+    return "\n".join([header, *lines])
+
+
 def format_knowledge(data: dict[str, Any]) -> str | None:
     """Format knowledge entries for LLM context."""
     if not data:

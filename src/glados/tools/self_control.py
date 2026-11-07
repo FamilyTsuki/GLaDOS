@@ -14,6 +14,8 @@ from ..autonomy.constitution import PromptModifier
 from .json_tool import JsonTool
 
 PAD_AXES = ("pleasure", "arousal", "dominance")
+MANNER_ACTIONS = {"set_language", "set_address", "set_user_name", "add_rule", "remove_rule"}
+MAX_RULES = 15
 
 inspect_definition = {
     "type": "function",
@@ -37,12 +39,33 @@ adjust_definition = {
             "(the owner's '+10' or 'max' means 1, '-10' means -1, '+5' means 0.5); lasting=true also moves the "
             "baseline you drift back to. reset_mood returns to neutral. set_trait sets a personality trait "
             "(verbosity, snark_level, formality, proactivity, technical_depth) within its limits from inspect_self; "
-            "clear_trait removes it. Report the result the tool returns, including any refusal."
+            "clear_trait removes it. How you talk to the owner, kept across restarts: set_language (language fr or "
+            "en, also switches your voice), set_address (address tu or vous), set_user_name (user_name; empty to "
+            "stop), add_rule (rule: a standing instruction in the owner's words, e.g. 'never swear'), remove_rule "
+            "(rule_number from inspect_self). Report the result the tool returns, including any refusal."
         ),
         "parameters": {
             "type": "object",
             "properties": {
-                "action": {"type": "string", "enum": ["set_mood", "reset_mood", "set_trait", "clear_trait"]},
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "set_mood",
+                        "reset_mood",
+                        "set_trait",
+                        "clear_trait",
+                        "set_language",
+                        "set_address",
+                        "set_user_name",
+                        "add_rule",
+                        "remove_rule",
+                    ],
+                },
+                "language": {"type": "string", "enum": ["fr", "en"]},
+                "address": {"type": "string", "enum": ["tu", "vous"]},
+                "user_name": {"type": "string"},
+                "rule": {"type": "string"},
+                "rule_number": {"type": "integer", "minimum": 1},
                 "pleasure": {"type": "number", "minimum": -1, "maximum": 1},
                 "arousal": {"type": "number", "minimum": -1, "maximum": 1},
                 "dominance": {"type": "number", "minimum": -1, "maximum": 1},
@@ -106,10 +129,22 @@ class InspectSelf(JsonTool):
                 "limits": {name: list(bounds) for name, bounds in state["modifiable_bounds"].items()},
                 "immutable_rules": state["immutable_rules"],
             }
+        manners = self.config.get("manners_store")
+        if manners is not None:
+            language = _get(self.config, "language_state")
+            report["manners"] = {
+                **manners.all(),
+                "rules": dict(enumerate(manners.get("rules") or [], 1)),
+                "speaking_now": language.current if language else getattr(engine, "language", None),
+            }
         from . import tool_definitions  # The package imports this module.
 
         report["tools"] = sorted(t["function"]["name"] for t in tool_definitions)
-        report["can_change_with_adjust_self"] = ["mood (pleasure, arousal, dominance)", "personality traits"]
+        report["can_change_with_adjust_self"] = [
+            "mood (pleasure, arousal, dominance)",
+            "personality traits",
+            "language, tu/vous, how to call the owner, standing rules",
+        ]
         report["cannot_change"] = ["immutable rules", "code and configuration files", "model weights"]
         return report
 
@@ -129,6 +164,8 @@ class AdjustSelf(JsonTool):
             if not values:
                 raise ValueError("Give at least one of pleasure, arousal or dominance (-1 to 1)")
             return {"mood": emotion.set_mood(values, bool(args.get("lasting")), cause=reason)}
+        if action in MANNER_ACTIONS:
+            return self._manners(action, args)
         constitution = self.config.get("constitutional_state")
         if constitution is None:
             raise ValueError("Personality traits unavailable")
@@ -151,3 +188,46 @@ class AdjustSelf(JsonTool):
         if value != float(args["value"]):
             result["note"] = f"Clamped to the constitutional limits {low}..{high}"
         return result
+
+    def _manners(self, action: str, args: dict[str, Any]) -> dict[str, Any]:
+        store = self.config.get("manners_store")
+        if store is None:
+            raise ValueError("Manners unavailable")
+        if action == "set_language":
+            language = args.get("language")
+            if language not in {"fr", "en"}:
+                raise ValueError("language must be fr or en")
+            state = _get(self.config, "language_state")
+            if state is None:
+                raise ValueError("This profile speaks one fixed language; set language: auto in its configuration")
+            state.set(language)
+            store.set("language", language)
+            return {"language": language, "voice": "switched", "note": "Answer in this language from now on"}
+        if action == "set_address":
+            if args.get("address") not in {"tu", "vous"}:
+                raise ValueError("address must be tu or vous")
+            store.set("address", args["address"])
+            return {"address": args["address"]}
+        if action == "set_user_name":
+            name = str(args.get("user_name") or "").strip()[:60]
+            if name:
+                store.set("user_name", name)
+            else:
+                store.delete("user_name")
+            return {"user_name": name or None}
+        rules = list(store.get("rules") or [])
+        if action == "add_rule":
+            rule = str(args.get("rule") or "").strip()[:300]
+            if not rule:
+                raise ValueError("Give the rule in the owner's words")
+            if len(rules) >= MAX_RULES:
+                raise ValueError(f"Already {MAX_RULES} rules; remove one first")
+            rules.append(rule)
+            store.set("rules", rules)
+            return {"rule_number": len(rules), "rule": rule}
+        number = args.get("rule_number")
+        if not isinstance(number, int) or not 1 <= number <= len(rules):
+            raise ValueError(f"rule_number must be between 1 and {len(rules)}")
+        removed = rules.pop(number - 1)
+        store.set("rules", rules)
+        return {"removed": removed, "rules": rules}

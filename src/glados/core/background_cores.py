@@ -272,6 +272,7 @@ def _observer(engine: Glados, manager: MindScheduler, llm: LLMConfig) -> None:
         constitutional_state=engine.constitutional_state,
         sample_count=10,
         min_samples_for_analysis=5,
+        language=engine.language,
         **_services(engine),
     )
     manager.register(agent, FixedInterval(120), run_on_start=False)

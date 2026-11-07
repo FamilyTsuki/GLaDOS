@@ -32,9 +32,10 @@ CATEGORIES = {
     "self": (
         "Self",
         (
-            "Questions about GLaDOS herself (her model, settings, mood, personality), or requests to change her "
-            "own mood (pleasure, arousal, dominance) or how she talks from now on: shorter or longer, more or "
-            "less sarcastic, formal, proactive or technical"
+            "Change how GLaDOS talks from now on: switch language (speak English, parle français), tu or vous, "
+            "a name or nickname for the user (call me X, appelle-moi X), shorter or longer, more or less sarcastic, "
+            "formal or technical, any standing rule; change her mood (pleasure, arousal, dominance); or questions "
+            "about GLaDOS herself (her model, settings, mood, personality)"
         ),
     ),
     "other": ("Other tools", "Use another local tool, such as a requested slow clap"),

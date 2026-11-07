@@ -70,3 +70,10 @@ class LanguageState:
         with self._lock:
             self._current = detect_language(text, self._current)
             return self._current
+
+    def set(self, language: Language) -> None:
+        """Switch on request; the next utterance in the other language can still switch back."""
+        if language not in LANGUAGES:
+            raise ValueError(f"Language must be one of {LANGUAGES}")
+        with self._lock:
+            self._current = language
