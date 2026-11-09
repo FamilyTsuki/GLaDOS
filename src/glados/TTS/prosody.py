@@ -65,9 +65,10 @@ def load(path: Path) -> None:
         return
     try:
         saved = read_settings(path)
-        for emotion, values in (saved or {}).items():
-            if emotion in PROSODY and isinstance(values, dict):
-                tune(emotion, values, save=False)
+        if isinstance(saved, dict):
+            for emotion, values in saved.items():
+                if emotion in PROSODY and isinstance(values, dict):
+                    tune(emotion, values, save=False)
     except (OSError, ValueError, TypeError) as exc:
         logger.warning("Voice prosody: ignoring unreadable settings: {}", exc)
 

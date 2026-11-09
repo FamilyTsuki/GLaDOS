@@ -80,7 +80,7 @@ adjust_definition = {
 }
 
 
-def _get(source: dict[str, Any], key: str) -> object:
+def _get(source: dict[str, Any], key: str) -> Any:  # noqa: ANN401 - config values may be any collaborator
     """A config value from a tool_config entry that may be a getter (for cores started later)."""
     value = source.get(key)
     return value() if callable(value) else value
@@ -169,7 +169,7 @@ class AdjustSelf(JsonTool):
         constitution = self.config.get("constitutional_state")
         if constitution is None:
             raise ValueError("Personality traits unavailable")
-        trait = args.get("trait")
+        trait = str(args.get("trait") or "")
         bounds = constitution.constitution.modifiable_bounds
         if trait not in bounds:
             raise ValueError(f"Unknown trait {trait!r}; choose one of {sorted(bounds)}")

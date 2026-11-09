@@ -59,7 +59,7 @@ class TextToSpeechSynthesizer:
     def _language(self, text: str, hint: str | None) -> str:
         """Which voice reads this line: a bilingual model decides per line, others have one language."""
         if self._bilingual:
-            return self.tts_model.language_of(text, hint)  # type: ignore[attr-defined]
+            return str(self.tts_model.language_of(text, hint))  # type: ignore[attr-defined]
         return getattr(self.tts_model, "language", "en")
 
     def _spoken(self, text: str, language: str | None = None) -> str:

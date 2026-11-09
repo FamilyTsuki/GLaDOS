@@ -11,7 +11,7 @@ import queue
 import sys
 import threading
 import time
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from loguru import logger
 from pydantic import HttpUrl
@@ -254,8 +254,9 @@ class Glados(GladosCommands):
             formatter=format_preferences,
         )
         self.manners_store = Store[Any](path=resource_path("data/manners.yaml"), formatter=format_manners)
-        if self.language_state and self.manners_store.get("language") in {"fr", "en"}:
-            self.language_state.set(self.manners_store.get("language"))  # The language the owner last asked for.
+        saved_lang = self.manners_store.get("language")
+        if self.language_state and saved_lang in {"fr", "en"}:
+            self.language_state.set(cast(Literal["en", "fr"], saved_lang))  # The language the owner last asked for.
 
         # Create unified context builder for LLM context injection
         self.context_builder = ContextBuilder()

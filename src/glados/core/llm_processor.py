@@ -1042,7 +1042,7 @@ class LanguageModelProcessor(LLMWireFormat):
     def _last_reply_text(self) -> str:
         for message in reversed(self._conversation_store.snapshot()):
             if message.get("role") == "assistant" and isinstance(message.get("content"), str):
-                return message["content"]
+                return str(message["content"])
         return ""
 
     def _add_turn_instructions(self, turn: ProcessorTurn) -> None:
