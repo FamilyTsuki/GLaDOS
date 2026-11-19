@@ -1,6 +1,6 @@
 # GLaDOS Personality Core
 
-> *"Science isn't about asking why. It's about asking, 'Why not?'"* — Cave Johnson
+> _"Science isn't about asking why. It's about asking, 'Why not?'"_ — Cave Johnson
 
 A voice assistant with GLaDOS’s custom voice, dry humour, camera observations,
 persistent memory and tools. Talk through a local microphone or the browser,
@@ -22,7 +22,7 @@ https://github.com/user-attachments/assets/c22049e4-7fba-4e84-8667-2c6657a656a0
 
 ## What it does
 
-> *"We've both said a lot of things that you're going to regret"* — GLaDOS
+> _"We've both said a lot of things that you're going to regret"_ — GLaDOS
 
 - **Voice conversation:** Gemma 4 E4B can receive audio directly. An extended
   profile uses Parakeet transcription with a different conversation model.
@@ -45,19 +45,19 @@ https://github.com/user-attachments/assets/c22049e4-7fba-4e84-8667-2c6657a656a0
 
 ## System requirements
 
-> *"Due to mandatory scheduled maintenance, the appropriate chambers for this testing track may temporarily lack air or gravity."* — GLaDOS
+> _"Due to mandatory scheduled maintenance, the appropriate chambers for this testing track may temporarily lack air or gravity."_ — GLaDOS
 
 ### Hardware configurations
 
-| Component | Minimum (Local Gemma 4 E4B) | Recommended (Multi-slot local E4B) | Cloud / API Fallback (Extended profile) |
-| --- | --- | --- | --- |
+| Component      | Minimum (Local Gemma 4 E4B)                           | Recommended (Multi-slot local E4B)                        | Cloud / API Fallback (Extended profile)        |
+| -------------- | ----------------------------------------------------- | --------------------------------------------------------- | ---------------------------------------------- |
 | **GPU (VRAM)** | NVIDIA GPU with **8 GB VRAM** (or supported AMD ROCm) | NVIDIA GPU with **10–12+ GB VRAM** (e.g. RTX 3080, 4070+) | No dedicated GPU required (CPU-only synthesis) |
-| **System RAM** | 16 GB RAM | 32 GB RAM (accommodates KV cache & RAM prompt cache) | 8 GB RAM |
-| **CPU** | Modern x86_64 multi-core (Intel i5 / AMD Ryzen 5) | High-performance multi-core CPU (8+ cores) | Standard dual/quad-core x86_64 CPU |
-| **Storage** | ~12 GB free space (SSD recommended) | 20+ GB free SSD space | ~3 GB free space (ONNX speech models only) |
-| **Audio I/O** | Functional microphone and speakers | Dedicated low-latency microphone and headphones | Microphone and speakers (host or browser) |
+| **System RAM** | 16 GB RAM                                             | 32 GB RAM (accommodates KV cache & RAM prompt cache)      | 8 GB RAM                                       |
+| **CPU**        | Modern x86_64 multi-core (Intel i5 / AMD Ryzen 5)     | High-performance multi-core CPU (8+ cores)                | Standard dual/quad-core x86_64 CPU             |
+| **Storage**    | ~12 GB free space (SSD recommended)                   | 20+ GB free SSD space                                     | ~3 GB free space (ONNX speech models only)     |
+| **Audio I/O**  | Functional microphone and speakers                    | Dedicated low-latency microphone and headphones           | Microphone and speakers (host or browser)      |
 
-*Memory note:* Gemma 4 E4B Q4_0 and its multimodal projector occupy ~5.15 GB on disk and 4.9 GB to 8.9 GB VRAM depending on context length and active inference slots. Machines without a dedicated GPU can run the **Extended profile** or use **Nexus Core** to connect to an external model server or cloud API.
+_Memory note:_ Gemma 4 E4B Q4_0 and its multimodal projector occupy ~5.15 GB on disk and 4.9 GB to 8.9 GB VRAM depending on context length and active inference slots. Machines without a dedicated GPU can run the **Extended profile** or use **Nexus Core** to connect to an external model server or cloud API.
 
 ### Dynamic Hardware Adaptation Engine
 
@@ -79,7 +79,7 @@ GLaDOS features an intelligent, multi-platform adaptation engine ([`hardware.py`
 
 ## Quick start
 
-> *"The Enrichment Center is required to remind you that the Weighted Companion Cube cannot talk. In the event that it does talk The Enrichment Centre asks you to ignore its advice."* — GLaDOS
+> _"The Enrichment Center is required to remind you that the Weighted Companion Cube cannot talk. In the event that it does talk The Enrichment Centre asks you to ignore its advice."_ — GLaDOS
 
 You need Git and Python 3.12 or newer to run the installer. It creates a Python
 3.12.8 environment, installs GLaDOS and downloads the local ONNX speech models.
@@ -183,11 +183,11 @@ CUDA build of `llama-server`: audio input to E4B is much slower on Vulkan.
 
 ## Choose a conversation profile
 
-| Profile | Voice input | Conversation backend | Starting configuration |
-| --- | --- | --- | --- |
-| Default | Audio sent directly to Gemma 4 E4B | llama.cpp, thinking disabled | [glados_config.yaml](configs/glados_config.yaml) |
-| Web console | Same direct-audio profile, with browser controls | llama.cpp, thinking disabled | [glados_webapp_config.yaml](configs/glados_webapp_config.yaml) |
-| Extended | Parakeet TDT transcription, then text | Ollama or an OpenAI-compatible API | [glados_extended_config.yaml](configs/glados_extended_config.yaml) |
+| Profile     | Voice input                                      | Conversation backend               | Starting configuration                                             |
+| ----------- | ------------------------------------------------ | ---------------------------------- | ------------------------------------------------------------------ |
+| Default     | Audio sent directly to Gemma 4 E4B               | llama.cpp, thinking disabled       | [glados_config.yaml](configs/glados_config.yaml)                   |
+| Web console | Same direct-audio profile, with browser controls | llama.cpp, thinking disabled       | [glados_webapp_config.yaml](configs/glados_webapp_config.yaml)     |
+| Extended    | Parakeet TDT transcription, then text            | Ollama or an OpenAI-compatible API | [glados_extended_config.yaml](configs/glados_extended_config.yaml) |
 
 English is the default input language. Direct-audio mode does **not** load
 Parakeet. Optional written user transcripts are off by default and use Gemma,
@@ -288,7 +288,7 @@ all loaded: direct-audio mode skips Parakeet at runtime.
 
 ## Configuration
 
-> *"As part of a required test protocol, we will not monitor the next test chamber. You will be entirely on your own. Good luck."* — GLaDOS
+> _"As part of a required test protocol, we will not monitor the next test chamber. You will be entirely on your own. Good luck."_ — GLaDOS
 
 Configuration files contain a top-level `Glados:` mapping. Repeat `--config` to
 layer files; values in later files override earlier values. Start with a complete
@@ -319,7 +319,7 @@ check your provider’s current model names and request options before using it.
 
 ## How the cores work
 
-> *"Let's be honest. Neither one of us knows what that thing does. Just put it in the corner and I'll deal with it later."* — GLaDOS
+> _"Let's be honest. Neither one of us knows what that thing does. Just put it in the corner and I'll deal with it later."_ — GLaDOS
 
 ```mermaid
 flowchart LR
@@ -340,7 +340,7 @@ flowchart LR
 
 ### Core components
 
-> *"All these science spheres are made out of asbestos, by the way. Keeps out the rats. Let us know if you feel a shortness of breath, a persistent dry cough, or your heart stopping. Because that's not part of the test. That's asbestos."* — Cave Johnson
+> _"All these science spheres are made out of asbestos, by the way. Keeps out the rats. Let us know if you feel a shortness of breath, a persistent dry cough, or your heart stopping. Because that's not part of the test. That's asbestos."_ — Cave Johnson
 
 Independent cores publish regular updates, important updates and task results.
 The Autonomy Core considers their evidence together with the conversation before
@@ -445,7 +445,7 @@ for tool filtering, memory services and transport setup.
 
 ## GLaDOS speech API
 
-> *"I'm speaking in an accent that is beyond her range of hearing."* — Wheatley
+> _"I'm speaking in an accent that is beyond her range of hearing."_ — Wheatley
 
 The optional API exposes the **GLaDOS voice** through an OpenAI-style
 `POST /v1/audio/speech` endpoint. Other API voices and speed adjustment are not
@@ -482,22 +482,22 @@ installer for the E4B model server.
 
 ## Troubleshooting
 
-> *"No one will blame you for giving up. In fact, quitting at this point is a perfectly reasonable response."* — GLaDOS
+> _"No one will blame you for giving up. In fact, quitting at this point is a perfectly reasonable response."_ — GLaDOS
 
-| Symptom | Check |
-| --- | --- |
-| No reply / cannot reach model | Start the separate model server; check its URL, model alias and profile. Default E4B expects port 18080. |
-| Missing model files | Run `uv run --no-sync glados download`; obtain the E4B GGUF and projector separately. |
-| AMD provider missing or CPU fallback | Check the matching ROCm release, driver and wheel; use the AMD guide and startup session-provider logs. |
-| Runtime changed after launching | Use `uv run --no-sync` after installer setup; do not mix CPU, CUDA and AMD ONNX distributions. |
-| Browser microphone unavailable | Select the WebSocket audio backend, start port 5051, grant permission and use localhost or a secure origin. |
-| Rejected remote console host | Configure explicit `webapp.allowed_hosts` alongside the bind address; see the web console guide. |
-| GLaDOS hears her own voice | Use headphones or echo cancellation; disable `interruptible` if playback is retriggering input. |
-| She stays quiet | Check microphone/voice controls, Quiet state and whether the router chose not to respond. |
+| Symptom                              | Check                                                                                                       |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| No reply / cannot reach model        | Start the separate model server; check its URL, model alias and profile. Default E4B expects port 18080.    |
+| Missing model files                  | Run `uv run --no-sync glados download`; obtain the E4B GGUF and projector separately.                       |
+| AMD provider missing or CPU fallback | Check the matching ROCm release, driver and wheel; use the AMD guide and startup session-provider logs.     |
+| Runtime changed after launching      | Use `uv run --no-sync` after installer setup; do not mix CPU, CUDA and AMD ONNX distributions.              |
+| Browser microphone unavailable       | Select the WebSocket audio backend, start port 5051, grant permission and use localhost or a secure origin. |
+| Rejected remote console host         | Configure explicit `webapp.allowed_hosts` alongside the bind address; see the web console guide.            |
+| GLaDOS hears her own voice           | Use headphones or echo cancellation; disable `interruptible` if playback is retriggering input.             |
+| She stays quiet                      | Check microphone/voice controls, Quiet state and whether the router chose not to respond.                   |
 
 ## Development and next steps
 
-> *"Federal regulations require me to warn you that this next test chamber... is looking pretty good."* — GLaDOS
+> _"Federal regulations require me to warn you that this next test chamber... is looking pretty good."_ — GLaDOS
 
 For a separate CPU development environment:
 
@@ -526,3 +526,5 @@ Questions, experiments and feedback are welcome on
 GLaDOS and Portal belong to Valve. This is a fan project.
 
 [![Star History Chart](https://api.star-history.com/svg?repos=dnhkng/GLaDOS&type=Date)](https://www.star-history.com/#dnhkng/GLaDOS&Date)
+
+uv run --no-sync glados webapp --config configs/glados_extended_config.yaml --config configs/my_glados.yaml
