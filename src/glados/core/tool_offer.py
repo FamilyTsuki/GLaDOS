@@ -49,9 +49,46 @@ AGENT_TOOL_GROUPS = {
     "schedule": "schedule",
     "browser": "web",
     "self_improve": "self",
+    "code_agent": "code",
 }
 # Accent-free, lower-case stems in French and English; "any" offers every agent tool.
 AGENT_TOOL_KEYWORDS = {
+    "code": (
+        "code",
+        "coder",
+        "projet",
+        "project",
+        "programme",
+        "claude",
+        "antigravity",
+        "agy",
+        "appli",
+        "application",
+        "logiciel",
+        "site web",
+        "script",
+        "bug",
+        "corrige",
+        "fix",
+        "test",
+        "compile",
+        "build",
+        "fonction",
+        "feature",
+        "repo",
+        "github",
+        "commit",
+        "pull request",
+        "session",
+        "telephone",
+        "portable",
+        "mobile",
+        "apercu",
+        "preview",
+        "montre",
+        "show me",
+        "voir le resultat",
+    ),
     "any": (
         "agent",
         "tache de fond",
@@ -347,6 +384,11 @@ def filter_tools_for_message(tools: list[dict[str, Any]], content: str) -> list[
     wants_clap = "clap" in text
     folded = fold(content)
     wanted_groups = {group for group, stems in AGENT_TOOL_KEYWORDS.items() if any(s in folded for s in stems)}
+    if "code" not in wanted_groups and any(t.get("function", {}).get("name") == "code_agent" for t in tools):
+        from ..tools.agent.coder import is_active  # A project in progress: follow-ups need no keyword.
+
+        if is_active():
+            wanted_groups.add("code")
     filtered: list[dict[str, Any]] = []
     for tool in tools:
         name = tool.get("function", {}).get("name", "")

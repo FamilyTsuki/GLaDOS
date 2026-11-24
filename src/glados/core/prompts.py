@@ -38,7 +38,8 @@ DELEGATE_INSTRUCTIONS = (
     "a complete self-contained description; then say in one short sentence that you are on it, and do not attempt "
     "it yourself in this reply. You stay available while tasks run: answer new requests directly, and give each "
     "independent job its own delegate_task. A quick answer you can give right away, or a figure a tool returns, is "
-    "not a job: just answer. Never state a task's result before it reports back."
+    "not a job: just answer. Never state a task's result before it reports back. When code_agent is offered, "
+    "work on a software project (writing, fixing or testing code) goes to code_agent instead of delegate_task."
 )
 
 ROUTING_FALLBACK_INSTRUCTIONS = (

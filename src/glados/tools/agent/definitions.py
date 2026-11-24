@@ -94,6 +94,33 @@ agent_definitions: list[dict[str, Any]] = [
         ["action"],
     ),
     _definition(
+        "code_agent",
+        "Your hands for software: a real coding agent on the PC works on the owner's projects in the background and "
+        "reports back. The owner speaks casually; turn what they mean into the call. start: new work on a project "
+        "(backend, project, task). backend claude (Claude Code): fast, very capable coding. backend agy "
+        "(Antigravity): changes to the PC itself, GitHub (repos, issues, PRs), or long multi-step jobs. reply: "
+        "anything more about the current project - changes ('add a dark mode', 'it crashes when...'), or the "
+        "owner's answer to the agent's question; approve=true only when the owner just said their confirmation code "
+        "for an action the agent was blocked on. show: the owner wants to see or try the result ('show me', 'I want "
+        "to see it on my phone', 'open it here'); target phone (default) or pc. stop_preview: stop the running "
+        "preview. status: progress ('where is it at?'). The current project is used when no session is given.",
+        {
+            "action": {"type": "string", "enum": ["start", "reply", "show", "stop_preview", "status"]},
+            "backend": {"type": "string", "enum": ["claude", "agy"]},
+            "project": {
+                "type": "string",
+                "description": "Project name as the owner says it (an existing folder is found, else created), "
+                "or a ~/ path",
+            },
+            "task": {"type": "string", "description": "Complete, self-contained goal in the owner's terms"},
+            "answer": {"type": "string", "description": "reply: the owner's words"},
+            "approve": {"type": "boolean"},
+            "target": {"type": "string", "enum": ["phone", "pc"]},
+            "session": {"type": "string", "description": "Only to address a project other than the current one"},
+        },
+        ["action"],
+    ),
+    _definition(
         "delegate_task",
         "Start a background task: a stronger worker with the same tools plus web search and the GitHub CLI does the "
         "job while you keep talking, and reports when done. Use it first for anything that means looking things up "

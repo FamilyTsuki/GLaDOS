@@ -111,7 +111,7 @@ class DelegateTask(_AgentTool):
         self, task: str, cancelled: threading.Event, prompt: str = WORKER_PROMPT, steps: int | None = None
     ) -> tuple[str, str, list[str]]:
         """Run the worker until it answers without tool calls: (status, final text, actions taken)."""
-        tools = [d for d in agent_definitions if d["function"]["name"] != "delegate_task"]
+        tools = [d for d in agent_definitions if d["function"]["name"] not in ("delegate_task", "code_agent")]
         if self.tool_config.get("mcp_manager") is not None:
             tools.append(WEB_SEARCH_DEFINITION)
         notes = AgentNotes(_Collect(), self.tool_config).read()[-2000:]
@@ -192,7 +192,7 @@ class DelegateTask(_AgentTool):
         if name == "web_search":
             return self.web_search(arguments)
         tool = agent_classes.get(name)
-        if tool is None or tool is DelegateTask:
+        if tool is None or name in ("delegate_task", "code_agent"):
             return json.dumps({"ok": False, "error": f"No tool named {name}"})
         sink = _Collect()
         config = {**self.tool_config, "_tool_timeout": WORKER_TOOL_TIMEOUT_S, "_agent_source": "worker"}

@@ -10,6 +10,7 @@ written to an audit log, and secrets are masked before output reaches the model.
 
 from .base import AgentConfig, AgentState, Guard, _AgentTool, _Collect, _definition, _notify_desktop, redact
 from .browser import Browser
+from .coder import CodeAgent
 from .definitions import agent_definitions
 from .desktop import Desktop
 from .files import EditFile, ListDir, ReadFile, WriteFile
@@ -22,6 +23,7 @@ agent_classes: dict[str, type[_AgentTool]] = {
     "agent_notes": AgentNotes,
     "schedule": Schedule,
     "delegate_task": DelegateTask,
+    "code_agent": CodeAgent,
     "run_shell": RunShell,
     "read_file": ReadFile,
     "write_file": WriteFile,
@@ -35,6 +37,7 @@ __all__ = [
     "AgentNotes",
     "AgentState",
     "Browser",
+    "CodeAgent",
     "DelegateTask",
     "Desktop",
     "EditFile",

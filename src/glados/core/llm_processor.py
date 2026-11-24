@@ -550,6 +550,11 @@ class LanguageModelProcessor(LLMWireFormat):
             self._add_request_context(messages, SELF_CONTROL_INSTRUCTIONS)
         if "delegate_task" in tool_names:
             self._add_request_context(messages, DELEGATE_INSTRUCTIONS)
+        if "code_agent" in tool_names:
+            from ..tools.agent.coder import context_line
+
+            if line := context_line():
+                self._add_request_context(messages, line)
 
     def _build_tools(self, autonomy_mode: bool) -> list[dict[str, Any]]:
         """Return the tool list for the LLM request."""

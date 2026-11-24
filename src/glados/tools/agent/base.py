@@ -21,10 +21,12 @@ import requests
 
 from ..protocol import MessageSink
 
-DEFAULT_BLACKLIST = [
+RM_PATTERN = r"\brm\b[^;&|]*\s-[a-zA-Z]*[rRf]"
+# Actions important enough to need the owner's word, whoever asks.
+IMPORTANT_ACTIONS = [
     r"\b(sudo|doas|pkexec)\b",
     r"(^|[;&|]\s*)su\b",
-    r"\brm\b[^;&|]*\s-[a-zA-Z]*[rRf]",
+    RM_PATTERN,
     r"\b(shutdown|reboot|poweroff|halt)\b",
     r"\bsystemctl\b.*\b(poweroff|reboot|halt|suspend|hibernate|stop|disable|mask|kill)\b",
     r"\b(mkfs\S*|wipefs|fdisk|sfdisk|parted|sgdisk|shred)\b",
@@ -39,7 +41,10 @@ DEFAULT_BLACKLIST = [
     r"\bkill\b.*\s-(9|KILL)\b",
     r"\bcrontab\s+-r\b",
     r":\(\)\s*\{",
-    # Ways to run code the patterns above cannot see.
+]
+DEFAULT_BLACKLIST = [
+    *IMPORTANT_ACTIONS,
+    # Ways to run code the patterns above cannot see (the small local model is not trusted with them).
     r"\b(ba|z|da|fi)?sh\s+-[a-zA-Z]*c\b",
     r"\b(python3?|perl|ruby|node|php)\s+-[a-zA-Z]*[ce]\b",
     r"\beval\b",
@@ -175,6 +180,19 @@ class AgentConfig(BaseModel):
     worker_api_key_env: str = Field(default="GLADOS_WORKER_API_KEY", description="Env var holding the API key")
     worker_steps: int = Field(default=25, ge=1, le=100)
     worker_think: bool = Field(default=False, description="Let a reasoning worker model think first (slower)")
+    code_projects_root: str = Field(
+        default="~/Documents/perso/Projects", description="Where code_agent finds or creates projects by name"
+    )
+    code_claude_model: str | None = Field(default=None, description="Model for Claude Code runs (None: its default)")
+    code_blacklist: list[str] = Field(
+        default_factory=lambda: list(IMPORTANT_ACTIONS),
+        description="What coding agents need the owner's spoken code for (rm -r inside the project is allowed)",
+    )
+    code_timeout_s: float = Field(default=3600.0, ge=60, le=3600, description="Longest single coding-agent run")
+    code_preview_ports: tuple[int, int] = Field(default=(8100, 8199), description="LAN ports for project previews")
+    code_phone_device: str | None = Field(
+        default=None, description="KDE Connect device id for previews (None: the first reachable paired device)"
+    )
     notes_path: str = str(NOTES_PATH)
     browser_port: int = Field(default=9333, description="DevTools port of the agent's own Chromium")
     browser_profile: str = "~/.glados/browser"
