@@ -38,7 +38,19 @@ AGENT_INSTRUCTION = (
     "and give the result in one to three short sentences in the language of the conversation. Report only what "
     "the worker found; if it failed or is incomplete, say so plainly."
 )
+CODE_INSTRUCTION = (
+    "Your coding agent (Claude Code or Antigravity) has finished a turn on the owner's project, or a preview is "
+    "ready. The quoted slot holds the project name, the agent's own final message ('report') and an 'instruction' "
+    "telling you what to do with it. Speak to the owner now, in your own voice and the language of the "
+    "conversation: name the project, and give what the agent did and the result in one to three short sentences, "
+    "rephrased rather than read out. Follow the slot's 'instruction': when the agent asks the owner a question or "
+    "waits for their approval, asking it is the whole point of this message, so do ask it clearly. Report only "
+    "what the agent says it did; if it failed or is incomplete, say so plainly. Never read URLs, paths or "
+    "commands aloud unless the instruction asks for it."
+)
 DIRECT_SLOT_HANDLERS: dict[str, tuple[str, str]] = {
+    # Coding-agent turns and previews: the owner is waiting to hear back, or to be asked something.
+    "task_code_": (CODE_INSTRUCTION, "Coding agent reported"),
     "task_nexus_": (NEXUS_INSTRUCTION, "Requested Nexus consultation finished"),
     # Reviewing it first on the local model delayed the answer by minutes.
     "task_search_": (SEARCH_INSTRUCTION, "Requested web search finished"),

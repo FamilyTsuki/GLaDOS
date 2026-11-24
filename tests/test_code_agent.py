@@ -166,3 +166,31 @@ def test_code_agents_only_ask_for_important_actions(tmp_path: Path) -> None:
     assert bash("rm -rf $HOME/x") is not None
     assert bash("rm -rf ~/Documents") is not None
     assert bash("sudo pacman -Syu") is not None
+
+
+def test_coding_agent_answer_is_announced_directly_with_its_question() -> None:
+    import queue
+
+    from glados.autonomy.loop import CODE_INSTRUCTION
+    from tests.test_nexus_core import make_loop
+
+    loop = make_loop()
+    loop._central_queue = queue.Queue()
+    report = {
+        "project": "meteo",
+        "report": "J'ai créé la page. QUESTION: Celsius ou Fahrenheit ?",
+        "instruction": "The coding agent asks the owner: Celsius ou Fahrenheit ? Ask them this naturally.",
+    }
+    loop._slot_store.update_slot(
+        "task_code_ab12cd_ef34",
+        "Claude Code: page météo",
+        "waiting",
+        "Coding agent (claude) waiting: page météo",
+        report=json.dumps(report, ensure_ascii=False),
+        update_priority="important",
+    )
+    loop._scan_slots()
+    assert loop._deliver_direct(), "no slow attention review: the owner is waiting"
+    request = loop._central_queue.get_nowait()
+    assert CODE_INSTRUCTION in request["content"]
+    assert "Celsius ou Fahrenheit" in request["content"] and "meteo" in request["content"]
