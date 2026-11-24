@@ -2,6 +2,8 @@
 
 import os
 from pathlib import Path
+import socket
+import sys
 from typing import Any, Literal
 
 from loguru import logger
@@ -61,6 +63,22 @@ class PersonalityPrompt(BaseModel):
 
         field, value = next(iter(fields.items()))
         return {"role": field, "content": value}
+
+
+def machine_overlays(files: list[Path]) -> list[Path]:
+    """This PC's own settings, merged last: configs/machines/<hostname>.yaml, else <platform>.yaml (win32, linux).
+
+    One launch command then works on every PC; GLADOS_NO_MACHINE_CONFIG=1 turns it off.
+    """
+    if not files or os.environ.get("GLADOS_NO_MACHINE_CONFIG"):
+        return []
+    folder = files[-1].parent / "machines"
+    host = socket.gethostname().split(".")[0].lower()
+    for name in (host, sys.platform):
+        overlay = folder / f"{name}.yaml"
+        if overlay.is_file() and overlay.resolve() not in {f.resolve() for f in files}:
+            return [overlay]
+    return []
 
 
 class GladosConfig(BaseModel):
@@ -250,6 +268,7 @@ class GladosConfig(BaseModel):
         """
 
         files = [Path(paths)] if isinstance(paths, (str, Path)) else [Path(path) for path in paths]
+        files += machine_overlays(files)
         config: dict[str, Any] = {}
 
         for path in files:

@@ -2,6 +2,7 @@ import argparse
 import asyncio
 from collections.abc import Sequence
 from hashlib import sha256
+import os
 from pathlib import Path
 import sys
 import tarfile
@@ -565,12 +566,25 @@ def main() -> int:
     say_parser.add_argument("text", type=str, help="Text for GLaDOS to speak")
     parser_add_config(say_parser)
 
+    sync_parser = subparsers.add_parser(
+        "sync", help="Merge settings, memory and keys with your other PCs through a shared folder"
+    )
+    sync_parser.add_argument(
+        "folder", nargs="?", help="Shared folder (default: the one this PC used last, or GLADOS_SYNC_DIR)"
+    )
+    sync_parser.add_argument("--force", action="store_true", help="Sync even while GLaDOS is running")
+
     args = parser.parse_args()
+    load_env_file()
 
     if args.command == "download":
         return asyncio.run(download_models())
     if args.command == "pair":
         return pair(args.config, reset=args.reset)
+    if args.command == "sync":
+        from .sync import main as sync_main
+
+        return sync_main(args.folder, force=args.force)
     else:
         if not models_valid():
             print("Some model files are invalid or missing. Please run 'uv run glados download'")
@@ -578,34 +592,80 @@ def main() -> int:
         from .observability.log_file import enable_file_log
 
         enable_file_log()
-        if args.command == "say":
-            say(args.text, args.config)
-        elif args.command == "start":
-            start(
-                args.config,
-                input_mode=args.input_mode,
-                tts_enabled=args.tts_enabled,
-                asr_muted=args.asr_muted,
-            )
-        elif args.command == "tui":
-            tui(
-                args.config,
-                input_mode=args.input_mode,
-                tts_enabled=args.tts_enabled,
-                asr_muted=args.asr_muted,
-                theme=args.theme,
-            )
-        elif args.command == "webapp":
-            run_webapp(
-                args.config,
-                input_mode=args.input_mode,
-                tts_enabled=args.tts_enabled,
-                asr_muted=args.asr_muted,
-            )
-        else:
-            # Default to start if no command specified
-            start(DEFAULT_CONFIG)
+        if args.command in ("start", "tui", "webapp"):
+            auto_sync("before starting")
+        try:
+            run_command(args)
+        finally:
+            if args.command in ("start", "tui", "webapp"):
+                auto_sync("after stopping")
         return 0
+
+
+def load_env_file(path: Path | None = None) -> None:
+    """Read KEY=value lines from the repository's .env (systemd does it on Linux; Windows has no equivalent).
+
+    Variables already set in the environment win.
+    """
+    path = path or Path(__file__).resolve().parents[2] / ".env"
+    try:
+        lines = path.read_text(encoding="utf-8-sig").splitlines()
+    except OSError:
+        return
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.removeprefix("export ").split("=", 1)
+        key, value = key.strip(), value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+            value = value[1:-1]
+        if key and value and key not in os.environ:
+            os.environ[key] = value
+
+
+def auto_sync(when: str) -> None:
+    """Once `glados sync <folder>` ran on this PC, start from the other PCs' latest state and leave ours for them."""
+    from .sync import remembered_folder, sync
+
+    folder = remembered_folder()
+    if folder is None:
+        return
+    try:
+        for line in sync(folder).lines():
+            print(f"[sync {when}] {line}")
+    except OSError as exc:
+        print(f"[sync {when}] skipped: {exc}")
+
+
+def run_command(args: argparse.Namespace) -> None:
+    if args.command == "say":
+        say(args.text, args.config)
+    elif args.command == "start":
+        start(
+            args.config,
+            input_mode=args.input_mode,
+            tts_enabled=args.tts_enabled,
+            asr_muted=args.asr_muted,
+        )
+    elif args.command == "tui":
+        tui(
+            args.config,
+            input_mode=args.input_mode,
+            tts_enabled=args.tts_enabled,
+            asr_muted=args.asr_muted,
+            theme=args.theme,
+        )
+    elif args.command == "webapp":
+        run_webapp(
+            args.config,
+            input_mode=args.input_mode,
+            tts_enabled=args.tts_enabled,
+            asr_muted=args.asr_muted,
+        )
+    else:
+        # Default to start if no command specified
+        start(DEFAULT_CONFIG)
 
 
 if __name__ == "__main__":

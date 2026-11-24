@@ -1,0 +1,10 @@
+# Settings for the Windows PC (RTX 5060 Ti, 16 GB VRAM), merged automatically after my_glados.yaml
+# whenever GLaDOS runs on Windows. A file named after a PC (configs/machines/<hostname>.yaml) wins over this one.
+Glados:
+  llm_model: "glados-ft"             # Same fine-tuned personality as on the laptop (import: scripts/setup_windows_pc.ps1)
+  agent:
+    vision_model: "qwen2.5vl:7b"     # 16 GB of dedicated VRAM: the larger vision model fits beside the chat model
+  health:
+    summary_interval_s: 60           # The 300 s on the laptop protected its shared iGPU; a dedicated GPU does not need it
+  autonomy:
+    cooldown_s: 30

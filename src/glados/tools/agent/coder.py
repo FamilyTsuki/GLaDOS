@@ -19,7 +19,6 @@ import os
 from pathlib import Path
 import re
 import shutil
-import signal
 import socket
 import subprocess
 import sys
@@ -31,12 +30,14 @@ import uuid
 
 from ...autonomy.task_manager import TaskResult
 from .base import BACKGROUND_MAX_S, RM_PATTERN, _AgentTool, _notify_desktop, redact
+from .oscompat import WINDOWS, bash, command_line, detached, kdeconnect_cli, kill_tree, open_path
 
 STATE_DIR = Path("data/code_agent")
 GUARD_SCRIPT = Path(__file__).with_name("code_guard.py").resolve()
 AGY_HOOKS = Path("~/.gemini/config/hooks.json").expanduser()
 AGY_HOOK_NAME = "glados-guard"
 UFW_RULES = Path("/etc/ufw/user.rules")
+WINDOWS_RULE = "GLaDOS previews"
 BACKENDS = ("claude", "agy")
 ACTIVE_WINDOW_S = 1800.0  # A project touched in the last 30 min is "the current one".
 RESUME_WINDOW_S = 86400.0  # Starting work on the same project within a day continues its session.
@@ -361,7 +362,7 @@ class CodeAgent(_AgentTool):
 
     def install_agy_hook(self) -> None:
         """agy reads hooks only from hooks.json; the hook is inert unless GLADOS_CODE_AGENT_STATE is set."""
-        command = f"{sys.executable} -I {GUARD_SCRIPT}"
+        command = command_line([sys.executable, "-I", str(GUARD_SCRIPT)])
         try:
             hooks = json.loads(AGY_HOOKS.read_text()) if AGY_HOOKS.exists() else {}
         except ValueError as exc:
@@ -376,7 +377,7 @@ class CodeAgent(_AgentTool):
     def argv(self, entry: dict[str, Any], message: str, state: Path) -> tuple[list[str], dict[str, str]]:
         session = entry.get("session")
         if entry["backend"] == "claude":
-            hook = f"{sys.executable} -I {GUARD_SCRIPT} {state}"
+            hook = command_line([sys.executable, "-I", str(GUARD_SCRIPT), str(state)])
             settings = {"hooks": {"PreToolUse": [{"matcher": "*", "hooks": [{"type": "command", "command": hook}]}]}}
             argv = [
                 shutil.which("claude") or "claude",
@@ -469,9 +470,9 @@ class CodeAgent(_AgentTool):
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            start_new_session=True,
             text=True,
             errors="replace",
+            **detached(),
         )
         out: list[str] = []
         err: list[str] = []
@@ -494,7 +495,7 @@ class CodeAgent(_AgentTool):
         error = None
         while process.poll() is None:
             if cancelled.is_set() or time.monotonic() > deadline:
-                os.killpg(process.pid, signal.SIGKILL)
+                kill_tree(process.pid, force=True)
                 error = "Cancelled" if cancelled.is_set() else "Timed out"
                 break
             time.sleep(0.5)
@@ -630,9 +631,7 @@ class CodeAgent(_AgentTool):
         url = f"http://{lan_ip()}:{port}/"
         _save_session(key, {"preview": {"pid": load_sessions()[key]["preview"]["pid"], "port": port, "url": url}})
         if target == "pc":
-            subprocess.Popen(
-                ["xdg-open", local], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-            )
+            open_path(local)
             delivered = "opened in the browser on the PC"
         else:
             delivered = self.send_to_phone(url, name)
@@ -642,9 +641,10 @@ class CodeAgent(_AgentTool):
         )
         if firewall and self.open_terminal(firewall):
             instruction += (
-                " But the PC firewall still blocks the phone: you opened a terminal on the PC that opens the preview "
-                "ports once and for all; they only need to type their password there, then reload the page on the "
-                "phone. Do not read the command aloud."
+                " But the PC firewall still blocks the phone: you opened a window on the PC that opens the preview "
+                "ports once and for all; they only need to confirm there ("
+                + ("accept the administrator prompt" if WINDOWS else "type their password")
+                + "), then reload the page on the phone. Do not read the command aloud."
             )
         elif firewall:
             instruction += (
@@ -670,13 +670,13 @@ class CodeAgent(_AgentTool):
         STATE_DIR.mkdir(parents=True, exist_ok=True)
         with log_path.open("wb") as log:
             process = subprocess.Popen(
-                ["bash", "-c", command],
+                [bash(), "-c", command],
                 cwd=load_sessions()[key]["project"],
                 env={**os.environ, "PORT": str(port), "HOST": "0.0.0.0", "BROWSER": "none"},
                 stdin=subprocess.DEVNULL,
                 stdout=log,
                 stderr=subprocess.STDOUT,
-                start_new_session=True,
+                **detached(),
             )
         _save_session(key, {"preview": {"pid": process.pid, "port": port}})
         deadline = time.monotonic() + PREVIEW_WAIT_S
@@ -695,10 +695,8 @@ class CodeAgent(_AgentTool):
     @staticmethod
     def kill(pid: int, port: int | None = None) -> None:
         """Stop a preview's process group; with ``port``, wait until it is free (SIGKILL after 5 s)."""
-        for sig, wait in ((signal.SIGTERM, 5.0), (signal.SIGKILL, 2.0)):
-            try:
-                os.killpg(pid, sig)
-            except (ProcessLookupError, PermissionError):
+        for force, wait in ((False, 5.0), (True, 2.0)):
+            if not kill_tree(pid, force):
                 return
             deadline = time.monotonic() + wait
             while port is not None and _port_open(port) and time.monotonic() < deadline:
@@ -708,7 +706,7 @@ class CodeAgent(_AgentTool):
 
     def send_to_phone(self, url: str, name: str) -> str:
         """Open the link on the phone through KDE Connect; otherwise show a QR code on the PC screen."""
-        cli = shutil.which("kdeconnect-cli")
+        cli = kdeconnect_cli()
         if cli:
             try:
                 device = self.config.code_phone_device
@@ -728,11 +726,8 @@ class CodeAgent(_AgentTool):
         if shutil.which("qrencode"):
             image = (STATE_DIR / "preview-qr.png").resolve()
             subprocess.run(["qrencode", "-s", "12", "-m", "2", "-o", str(image), url], check=False, timeout=10)
-            viewer = shutil.which("imv") or shutil.which("xdg-open")
-            if viewer and image.exists():
-                subprocess.Popen(
-                    [viewer, str(image)], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-                )
+            if image.exists():
+                open_path(str(image))
                 _notify_desktop(f"GLaDOS: {name}", url)
                 return "ready: their phone was not reachable, so a QR code to scan is on the PC screen"
         _notify_desktop(f"GLaDOS: {name}", url)
@@ -740,7 +735,22 @@ class CodeAgent(_AgentTool):
 
     @staticmethod
     def open_terminal(command: str) -> bool:
-        """A terminal on the PC with ``command`` ready: the owner only types their password."""
+        """A terminal on the PC with ``command`` ready: the owner only types their password (Windows: accepts UAC)."""
+        if WINDOWS:
+            inner = command.replace("'", "''") + "; Read-Host 'Entrée pour fermer'"
+            try:
+                subprocess.Popen(
+                    [
+                        "powershell",
+                        "-NoProfile",
+                        "-Command",
+                        f"Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile','-Command','{inner}'",
+                    ],
+                    **detached(),
+                )
+            except OSError:
+                return False
+            return True
         launcher = shutil.which("xdg-terminal-exec")
         if launcher is None:
             return False
@@ -760,7 +770,24 @@ class CodeAgent(_AgentTool):
         return True
 
     def firewall_fix(self, port: int) -> str | None:
-        """The one-time ufw command when ufw is on and nothing lets the LAN reach ``port``."""
+        """The one-time firewall command when nothing lets the LAN reach ``port`` (ufw, or Windows Defender)."""
+        first_port, last_port = self.config.code_preview_ports
+        if WINDOWS:
+            try:
+                rule = subprocess.run(
+                    ["netsh", "advfirewall", "firewall", "show", "rule", f"name={WINDOWS_RULE}"],
+                    capture_output=True,
+                    timeout=10,
+                    check=False,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                return None
+            if rule.returncode == 0:
+                return None
+            return (
+                f'netsh advfirewall firewall add rule name="{WINDOWS_RULE}" dir=in action=allow protocol=TCP '
+                f"localport={first_port}-{last_port} profile=private"
+            )
         try:
             active = subprocess.run(
                 ["systemctl", "is-active", "ufw"], capture_output=True, text=True, timeout=5, check=False
@@ -773,7 +800,7 @@ class CodeAgent(_AgentTool):
         for first, last in re.findall(r"^### tuple ### allow (?:tcp|any) (\d+)(?::(\d+))? ", rules, re.MULTILINE):
             if int(first) <= port <= int(last or first):
                 return None
-        ports = "{}:{}".format(*self.config.code_preview_ports)
+        ports = f"{first_port}:{last_port}"
         return " && ".join(
             f"sudo ufw allow from {net} to any port {ports} proto tcp" for net in ("10.0.0.0/8", "192.168.0.0/16")
         )

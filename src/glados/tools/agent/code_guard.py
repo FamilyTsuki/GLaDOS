@@ -8,7 +8,6 @@ Without a state file (the owner's own agy sessions) it prints nothing and change
 
 from __future__ import annotations
 
-import fcntl
 import json
 import os
 from pathlib import Path
@@ -29,7 +28,12 @@ REASON = (
 def _consume_approval(state_path: Path, command: str) -> bool:
     """True once for a command the owner approved; the approval is removed."""
     with state_path.open("r+") as handle:
-        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            import fcntl  # POSIX; on Windows the agent runs one tool call at a time anyway.
+
+            fcntl.flock(handle, fcntl.LOCK_EX)
+        except ImportError:
+            pass
         state = json.load(handle)
         approved = state.get("approved", [])
         if command not in approved:

@@ -213,3 +213,6 @@ data/webapp_sessions.json
 # Agent audit trail: a record of commands run on this machine
 data/agent_audit.jsonl
 data/code_agent/
+data/.sync-base.json
+data/.sync-folder
+*.conflict-*
