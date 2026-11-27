@@ -1,0 +1,14 @@
+[Unit]
+Description=Spend leftover weekly Claude quota on GLaDOS training data (server)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Adjust REPO if the clone is not at ~/GLaDOS. The token comes from `claude setup-token`.
+Environment=REPO=%h/GLaDOS
+EnvironmentFile=%h/.config/glados-quota.env
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/bin/bash ${REPO}/training/quota/server_run.sh
+TimeoutStartSec=4h
+Nice=10

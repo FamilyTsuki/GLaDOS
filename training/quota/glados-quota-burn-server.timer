@@ -1,0 +1,11 @@
+[Unit]
+Description=Burn leftover weekly Claude quota 3 h before the Wednesday 03:00 reset
+
+[Timer]
+# The weekly window resets every Wednesday at 03:00 Paris time.
+OnCalendar=Wed *-*-* 00:00:00 Europe/Paris
+Persistent=false
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

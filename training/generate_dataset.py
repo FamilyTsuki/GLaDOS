@@ -19,7 +19,10 @@ import json
 import os
 import random
 import re
+import subprocess
 import sys
+import tempfile
+import time
 import urllib.request
 from pathlib import Path
 
@@ -82,6 +85,37 @@ def chat(url: str, model: str, key: str | None, prompt: str, effort: str | None)
     return data["choices"][0]["message"]["content"], data.get("usage", {})
 
 
+class QuotaExhausted(RuntimeError):
+    """The Claude subscription refused the request (usage limit reached)."""
+
+
+def chat_claude(model: str, prompt: str) -> tuple[str, dict]:
+    """Generate through the local `claude` CLI, billed to the Claude subscription.
+
+    Settings, plugins, hooks, tools and MCP servers are all disabled so nothing
+    (e.g. a terse-style plugin) leaks into the generated GLaDOS lines.
+    """
+    cmd = [
+        os.environ.get("CLAUDE_BIN", "claude"), "-p", "--model", model, "--output-format", "json",
+        "--setting-sources", "", "--tools", "", "--strict-mcp-config",
+        "--no-session-persistence", "--disable-slash-commands",
+        "--system-prompt", "Tu génères des données d'entraînement. Réponds uniquement avec le JSON demandé.",
+    ]
+    r = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=600,
+                       cwd=tempfile.gettempdir())
+    try:
+        data = json.loads(r.stdout)
+    except ValueError:
+        data = {"is_error": True, "result": (r.stdout + r.stderr)[-500:]}
+    if data.get("is_error") or r.returncode:
+        msg = str(data.get("result", ""))
+        if data.get("api_error_status") == 429 or re.search(r"usage limit|rate.?limit|limit reached", msg, re.I):
+            raise QuotaExhausted(msg[:200])
+        raise RuntimeError(msg[:200])
+    u = data.get("usage", {})
+    return data["result"], {"prompt_tokens": u.get("input_tokens", 0), "completion_tokens": u.get("output_tokens", 0)}
+
+
 def env_key(name: str) -> str | None:
     """Read a key from the environment or the project's .env, never printing it."""
     if os.environ.get(name):
@@ -117,6 +151,9 @@ def main() -> None:
     p.add_argument("--budget-usd", type=float, default=0.0, help="stop once spend reaches this (0 = no limit)")
     p.add_argument("--price-in", type=float, default=0.25, help="USD per 1M input tokens")
     p.add_argument("--price-out", type=float, default=2.0, help="USD per 1M output tokens")
+    p.add_argument("--backend", choices=["http", "claude"], default="http",
+                   help="claude = local `claude -p` on the subscription (--model sonnet/opus)")
+    p.add_argument("--deadline", type=float, default=0.0, help="unix time to stop at (0 = none)")
     p.add_argument("--out", default=str(HERE / "glados_dataset.jsonl"))
     a = p.parse_args()
     key = env_key(a.api_key_env) if a.api_key_env else None
@@ -134,9 +171,16 @@ def main() -> None:
                 f.write(json.dumps(s, ensure_ascii=False) + "\n")
                 seen.add(s["messages"][0]["content"].lower())
 
+    failures = 0
     while len(seen) < a.n:
         if a.budget_usd and spent >= a.budget_usd:
             print(f"budget reached: ${spent:.3f}", file=sys.stderr)
+            break
+        if a.deadline and time.time() >= a.deadline:
+            print("deadline reached", file=sys.stderr)
+            break
+        if failures >= 5:
+            print("too many consecutive failures, stopping", file=sys.stderr)
             break
         use_tools = random.random() < a.tool_ratio
         pool = [s for s in seeds if ("tool_calls" in s["messages"][1]) == use_tools]
@@ -148,13 +192,21 @@ def main() -> None:
             topic=random.choice(TOPICS),
         )
         try:
-            raw, usage = chat(a.url, a.model, key, prompt, a.reasoning_effort)
+            if a.backend == "claude":
+                raw, usage = chat_claude(a.model, prompt)
+            else:
+                raw, usage = chat(a.url, a.model, key, prompt, a.reasoning_effort)
             spent += (usage.get("prompt_tokens", 0) * a.price_in
                       + usage.get("completion_tokens", 0) * a.price_out) / 1e6
             raw = re.sub(r"^```(?:json)?|```$", "", raw.strip(), flags=re.M)
             batch = json.loads(raw[raw.find("["): raw.rfind("]") + 1])
+            failures = 0
+        except QuotaExhausted as e:
+            print(f"quota exhausted: {e}", file=sys.stderr)
+            break
         except Exception as e:  # noqa: BLE001 - bad generations are just skipped
             print(f"skip: {e}", file=sys.stderr)
+            failures += 1
             continue
         with out.open("a", encoding="utf-8") as f:
             for ex in batch:

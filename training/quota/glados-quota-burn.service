@@ -1,0 +1,10 @@
+[Unit]
+Description=Spend leftover weekly Claude quota on GLaDOS training data
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/Documents/perso/Projects/GLaDOS/training
+Environment=PATH=%h/.local/share/mise/command-wrappers/bin:%h/.local/bin:/usr/local/bin:/usr/bin
+ExecStart=/usr/bin/python3 %h/Documents/perso/Projects/GLaDOS/training/quota/burn_weekly_quota.py --lead 180 --workers 3 --model opus
+TimeoutStartSec=3h
+Nice=10
